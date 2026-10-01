@@ -1,0 +1,32 @@
+# Next.js
+.next/
+dist/
+out/
+build/
+
+# Dependencias
+node_modules/
+
+# Entorno y Secretos (BLINDADO)
+.env
+.env.local
+.env.local.txt
+.env*.local
+.env*.local.txt
+*.pem
+
+# Vercel
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# SO
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
