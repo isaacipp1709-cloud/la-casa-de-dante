@@ -1,4 +1,5 @@
 import React from 'react';
+import { User, Terminal } from 'lucide-react';
 
 type Role = 'user' | 'assistant' | 'system';
 
@@ -11,24 +12,48 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
   const isUser = role === 'user';
   const isSystem = role === 'system';
 
+  if (isSystem) {
+    return (
+      <div
+        className="flex w-full mb-3 justify-center"
+        role="listitem"
+        aria-label="Mensaje del sistema"
+      >
+        <div className="max-w-[85%] bg-red-950/30 text-red-400 border border-red-900/50 rounded-md px-4 py-2 text-xs font-mono text-center">
+          {content}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`flex w-full mb-4 ${
-        isUser ? 'justify-end' : isSystem ? 'justify-center' : 'justify-start'
-      }`}
+      className="flex w-full mb-4"
       role="listitem"
-      aria-label={`Mensaje de ${role}`}
+      aria-label={`Mensaje de ${isUser ? 'Usuario' : 'Dante'}`}
     >
-      <div
-        className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
-          isUser
-            ? 'bg-blue-600 text-white rounded-br-none'
-            : isSystem
-            ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border border-red-200 dark:border-red-900 text-center text-xs'
-            : 'bg-white border border-gray-200 text-gray-900 rounded-bl-none dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100'
-        }`}
-      >
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
+      <div className={`w-full flex gap-4 p-4 sm:p-5 rounded-2xl border ${isUser ? 'bg-zinc-900/30 border-transparent' : 'bg-zinc-900/80 border-zinc-800/80 shadow-sm'}`}>
+        <div className="shrink-0 mt-0.5">
+          {isUser ? (
+            <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 border border-zinc-700">
+              <User className="w-4 h-4" />
+            </div>
+          ) : (
+            <div className="w-7 h-7 rounded-md bg-zinc-100 flex items-center justify-center text-zinc-900 shadow-sm">
+              <Terminal className="w-4 h-4" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider font-mono text-zinc-500">
+              {isUser ? 'Usuario' : 'Dante'}
+            </span>
+          </div>
+          <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-200">
+            {content}
+          </div>
+        </div>
       </div>
     </div>
   );

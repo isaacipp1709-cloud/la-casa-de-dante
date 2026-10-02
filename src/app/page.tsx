@@ -1,9 +1,10 @@
 import { ChatShell } from "@/components/chat/chat-shell";
+import { MainLayout } from "@/components/layout/main-layout";
 
 export default function Home() {
   return (
-    <div className="bg-white dark:bg-black min-h-screen">
+    <MainLayout>
       <ChatShell />
-    </div>
+    </MainLayout>
   );
 }

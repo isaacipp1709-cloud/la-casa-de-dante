@@ -1,6 +1,7 @@
 "use client";
 
 import React, { KeyboardEvent, useRef, useEffect } from 'react';
+import { ArrowUp } from 'lucide-react';
 
 interface ChatComposerProps {
   onSend: (message: string) => void;
@@ -44,25 +45,25 @@ export function ChatComposer({ onSend, disabled }: ChatComposerProps) {
   };
 
   return (
-    <div className="flex gap-3 items-end border-t border-gray-200 p-4 bg-white dark:bg-gray-950 dark:border-gray-800">
+    <div className="flex gap-3 items-end p-4 sm:p-6">
       <textarea
         ref={textareaRef}
         value={input}
         onChange={handleInput}
         onKeyDown={onKeyDown}
-        placeholder="Escribe un mensaje a Dante..."
+        placeholder="Ingresar comando o consulta..."
         disabled={disabled}
-        className="flex-1 max-h-32 min-h-[44px] resize-none rounded-xl border border-gray-300 p-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 transition-colors shadow-sm overflow-y-auto"
+        className="flex-1 max-h-32 min-h-[48px] resize-none rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5 text-sm focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-200 transition-colors shadow-sm overflow-y-auto"
         rows={1}
         aria-label="Caja de texto para el mensaje"
       />
       <button
         onClick={handleSend}
         disabled={disabled || !input.trim()}
-        className="h-[44px] px-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-colors shadow-sm"
+        className="h-[48px] w-[48px] flex items-center justify-center bg-zinc-100 text-zinc-900 rounded-xl hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed transition-colors shadow-sm shrink-0"
         aria-label="Enviar mensaje"
       >
-        Enviar
+        <ArrowUp className="w-5 h-5" />
       </button>
     </div>
   );
