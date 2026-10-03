@@ -9,6 +9,14 @@ export const DanteMessageSchema = z.object({
 export const DanteChatRequestSchema = z.object({
   messages: z.array(DanteMessageSchema).min(1),
   sessionId: z.string().optional(),
+  conversationId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional(),
+  context: z.object({
+    timezone: z.string().default('UTC'),
+    locale: z.string().default('es-CL'),
+    capabilities: z.array(z.string()).optional(),
+    constraints: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 export const DanteChatResponseSchema = z.object({
@@ -27,3 +35,17 @@ export const DanteHealthResponseSchema = z.object({
   version: z.string(),
   timestamp: z.string().datetime(),
 });
+
+// Bridge state machine
+export type DanteBridgeState =
+  | 'CONNECTED'
+  | 'DEGRADED'
+  | 'DISCONNECTED'
+  | 'ERROR'
+  | 'LOADING';
+
+export interface BridgeStatus {
+  state: DanteBridgeState;
+  lastCheckedAt: string;
+  error?: string;
+}

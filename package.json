@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "tsx --test src/lib/dante-bridge/__tests__/resilience.test.ts",
     "verify:bridge": "tsx scripts/verify-bridge.ts",
     "verify:chat-route": "tsx scripts/verify-chat-route.ts",
     "verify:chat-ui": "tsx scripts/verify-chat-ui.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.117.2",
     "clsx": "^2.1.1",
     "groq-sdk": "^1.6.0",
