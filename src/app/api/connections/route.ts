@@ -32,9 +32,9 @@ export async function GET() {
     connections[1].status = latency > 2000 ? 'unstable' : 'online';
     connections[1].details = 'Conectado de forma segura a través del Core';
     
-  } catch (err: any) {
+  } catch (err: unknown) {
     connections[0].status = 'offline';
-    connections[0].details = err.message || 'Error de conexión (Timeout)';
+    connections[0].details = (err as Error).message || 'Error de conexión (Timeout)';
   }
 
   return NextResponse.json(connections);
