@@ -23,6 +23,7 @@ export const DanteChatResponseSchema = z.object({
   message: DanteMessageSchema,
   status: z.enum(["success", "error"]),
   correlationId: z.string(),
+  providerId: z.string().optional(),
   usage: z.object({
     promptTokens: z.number().int().nonnegative(),
     completionTokens: z.number().int().nonnegative(),

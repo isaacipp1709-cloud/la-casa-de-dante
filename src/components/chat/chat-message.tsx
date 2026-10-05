@@ -6,9 +6,10 @@ type Role = 'user' | 'assistant' | 'system';
 interface ChatMessageProps {
   role: Role;
   content: string;
+  providerId?: string;
 }
 
-export function ChatMessage({ role, content }: ChatMessageProps) {
+export function ChatMessage({ role, content, providerId }: ChatMessageProps) {
   const isUser = role === 'user';
   const isSystem = role === 'system';
 
@@ -53,6 +54,13 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
           <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-200">
             {content}
           </div>
+          {!isUser && providerId && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <span className="text-[10px] font-mono text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded-full border border-zinc-800">
+                ⚡ Provider: {providerId}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

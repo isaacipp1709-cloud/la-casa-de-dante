@@ -14,6 +14,7 @@ type Message = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  providerId?: string;
 };
 
 const getSafeErrorMessage = (status: number) => {
@@ -64,10 +65,11 @@ export function ChatShell() {
         throw new Error('Error de validación o servidor.');
       }
 
-      const assistantMsg: Message = {
+      const assistantMsg: Message & { providerId?: string } = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: data.message.content,
+        providerId: data.providerId,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -109,7 +111,7 @@ export function ChatShell() {
             </div>
           )}
           {messages.map((msg) => (
-            <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
+            <ChatMessage key={msg.id} role={msg.role} content={msg.content} providerId={msg.providerId} />
           ))}
           {isTyping && (
             <div className="flex w-full mb-2 justify-start">

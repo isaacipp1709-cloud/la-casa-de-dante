@@ -93,6 +93,7 @@ export class DanteBridgeImpl implements DanteBridge {
           },
           status: "success",
           correlationId: coreResponse.conversationId || coreResponse.id,
+          providerId: coreResponse.model,
           usage: coreResponse.usage ? {
             promptTokens: coreResponse.usage.prompt_tokens,
             completionTokens: coreResponse.usage.completion_tokens,

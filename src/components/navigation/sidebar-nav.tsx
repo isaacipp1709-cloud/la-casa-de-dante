@@ -16,12 +16,11 @@ const navItems = [
   { href: "/", label: "Conversación", icon: MessageSquare },
   { href: "/connections", label: "Sistema", icon: Settings },
   { href: "/dashboard/providers", label: "APIs", icon: Radio },
+  { href: "/neurons", label: "Neuronas", icon: Brain },
+  { href: "/logs", label: "Bitácora", icon: ScrollText },
 ];
 
-const disabledItems = [
-  { label: "Neuronas", icon: Brain },
-  { label: "Bitácora", icon: ScrollText },
-];
+const disabledItems: Array<{ label: string; icon: any }> = [];
 
 export function SidebarNav() {
   const pathname = usePathname();
