@@ -37,6 +37,69 @@ export const DanteHealthResponseSchema = z.object({
   timestamp: z.string().datetime(),
 });
 
+export const DanteNeuronSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  status: z.enum(["activo", "en_espera", "degradado"]),
+  category: z.string().min(1),
+  description: z.string().min(1),
+  lastExecution: z.string().datetime(),
+});
+
+export const DanteNeuronsResponseSchema = z.array(DanteNeuronSchema);
+
+export const DanteAnalyticsSchema = z.object({
+  totalConversations: z.number().int().nonnegative(),
+  totalMessages: z.number().int().nonnegative(),
+  averageLatencyMs: z.number().nonnegative(),
+});
+
+export const DanteConversationSchema = z.object({
+  id: z.string().min(1),
+  external_id: z.string().optional(),
+  updated_at: z.string().datetime(),
+});
+
+export const DanteConversationsResponseSchema = z.array(DanteConversationSchema);
+
+export const DanteLogEntrySchema = z.object({
+  id: z.string().min(1),
+  timestamp: z.string().datetime(),
+  level: z.enum(["info", "warn", "error"]),
+  module: z.string().min(1),
+  message: z.string().min(1),
+});
+
+export const DanteLogsResponseSchema = z.object({
+  logs: z.array(DanteLogEntrySchema),
+});
+
+export const DanteProviderStatusSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  category: z.string().min(1),
+  is_active: z.boolean(),
+  usageToday: z.number().int().nonnegative().default(0),
+  dailyLimit: z.number().int().nonnegative().default(1000),
+  is_public: z.boolean().default(false),
+});
+
+export const DanteProvidersResponseSchema = z.array(DanteProviderStatusSchema);
+
+export const DanteProviderCreateRequestSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  category: z.string().trim().min(1).max(40),
+});
+
+export const DanteConnectionSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  status: z.enum(["online", "unstable", "offline"]),
+  details: z.string().min(1),
+});
+
+export const DanteConnectionsResponseSchema = z.array(DanteConnectionSchema);
+
 // Bridge state machine
 export type DanteBridgeState =
   | 'CONNECTED'

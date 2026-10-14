@@ -101,8 +101,60 @@ export async function chatWithDanteWithRetry(
   throw lastError;
 }
 
-export async function checkDanteHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${DANTE_CORE_URL}/api/health`);
-  if (!res.ok) throw new Error('Health check failed');
-  return res.json();
+export async function checkDanteHealth(
+  timeoutMs: number = 5_000
+): Promise<HealthResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${DANTE_CORE_URL}/api/health`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error('Health check failed');
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Generic authenticated GET helper for Dante-AI-Core endpoints with timeout.
+ */
+export async function fetchFromDanteCore(
+  endpointPath: string,
+  timeoutMs: number = 8_000
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${DANTE_CORE_URL}${endpointPath}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}`,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`CORE_HTTP_${res.status}`);
+    }
+
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw error;
+  }
 }

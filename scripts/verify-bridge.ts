@@ -1,5 +1,13 @@
 import { danteBridge } from "../src/lib/dante-bridge";
-import { DanteHealthResponseSchema } from "../src/contracts/dante";
+import {
+  DanteHealthResponseSchema,
+  DanteNeuronsResponseSchema,
+  DanteAnalyticsSchema,
+  DanteConversationsResponseSchema,
+  DanteLogsResponseSchema,
+  DanteProvidersResponseSchema,
+  DanteConnectionsResponseSchema,
+} from "../src/contracts/dante";
 
 async function runVerification() {
   console.log("=== INICIANDO VERIFICACIÓN DEL DANTE-BRIDGE ===");
@@ -44,18 +52,36 @@ async function runVerification() {
 
   // d. Endpoint de salud
   console.log("\n[TEST D] Endpoint de Salud...");
-  const healthData = {
-    status: "ok",
-    version: "1.0.0",
-    timestamp: new Date().toISOString(),
-  };
+  const healthData = await danteBridge.getHealth();
   const parsed = DanteHealthResponseSchema.safeParse(healthData);
   if (parsed.success) {
-    console.log("✅ Endpoint de salud (mock) tiene respuesta válida.");
+    console.log("✅ Endpoint de salud tiene respuesta válida.");
   } else {
     console.error("❌ Falló la validación del schema de salud.");
     process.exit(1);
   }
+
+  // e. Verificación unificada de rutas del puente (Neuronas, Analítica, Conversaciones, Logs, Proveedores, Conexiones)
+  console.log("\n[TEST E] Verificando contratos Zod de todas las capacidades del puente...");
+  const neurons = await danteBridge.getNeurons();
+  const analytics = await danteBridge.getAnalytics();
+  const conversations = await danteBridge.getConversations();
+  const logs = await danteBridge.getLogs();
+  const providers = await danteBridge.getProviders();
+  const connections = await danteBridge.getConnections();
+
+  if (
+    !DanteNeuronsResponseSchema.safeParse(neurons).success ||
+    !DanteAnalyticsSchema.safeParse(analytics).success ||
+    !DanteConversationsResponseSchema.safeParse(conversations).success ||
+    !DanteLogsResponseSchema.safeParse(logs).success ||
+    !DanteProvidersResponseSchema.safeParse(providers).success ||
+    !DanteConnectionsResponseSchema.safeParse(connections).success
+  ) {
+    console.error("❌ Falló la validación de alguno de los esquemas unificados del puente.");
+    process.exit(1);
+  }
+  console.log("✅ Todos los esquemas (Neuronas, Analítica, Conversaciones, Logs, Proveedores, Conexiones) validados con z.safeParse().");
 
   console.log("\n=== TODAS LAS PRUEBAS PASARON ===");
 }

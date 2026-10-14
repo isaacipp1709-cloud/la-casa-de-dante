@@ -1,13 +1,45 @@
-import { DanteChatResponse } from "./types";
-import { DanteChatRequestSchema } from "@/contracts/dante";
+import {
+  DanteChatResponse,
+  DanteNeuronsResponse,
+  DanteAnalytics,
+  DanteConversationsResponse,
+  DanteLogsResponse,
+  DanteProvidersResponse,
+  DanteConnectionsResponse,
+  DanteHealthResponse,
+} from "./types";
+import {
+  DanteChatRequestSchema,
+  DanteChatResponseSchema,
+  DanteNeuronsResponseSchema,
+  DanteAnalyticsSchema,
+  DanteConversationsResponseSchema,
+  DanteLogsResponseSchema,
+  DanteProvidersResponseSchema,
+  DanteConnectionsResponseSchema,
+  DanteHealthResponseSchema,
+} from "@/contracts/dante";
 import type { BridgeStatus, DanteBridgeState } from "@/contracts/dante";
 import { MockDanteProvider } from "./mock-provider";
 import { ValidationError } from "./errors";
-import { chatWithDanteWithRetry } from "./client";
+import {
+  chatWithDanteWithRetry,
+  checkDanteHealth,
+  fetchFromDanteCore,
+} from "./client";
 
 export interface DanteBridge {
   chat(request: unknown): Promise<DanteChatResponse>;
   getStatus(): BridgeStatus;
+  getHealth(): Promise<DanteHealthResponse>;
+  getNeurons(): Promise<DanteNeuronsResponse>;
+  getAnalytics(): Promise<DanteAnalytics>;
+  getConversations(): Promise<DanteConversationsResponse>;
+  getLogs(): Promise<DanteLogsResponse>;
+  getProviders(): Promise<DanteProvidersResponse>;
+  addProvider(payload: unknown): Promise<DanteProvidersResponse>;
+  removeProvider(id: string): Promise<DanteProvidersResponse>;
+  getConnections(): Promise<DanteConnectionsResponse>;
 }
 
 export class DanteBridgeImpl implements DanteBridge {
@@ -34,6 +66,10 @@ export class DanteBridgeImpl implements DanteBridge {
     };
   }
 
+  private isLocalCoreMode(): boolean {
+    return process.env.DANTE_MODE === 'local-core';
+  }
+
   async chat(payload: unknown): Promise<DanteChatResponse> {
     const parsedRequest = DanteChatRequestSchema.safeParse(payload);
 
@@ -44,25 +80,22 @@ export class DanteBridgeImpl implements DanteBridge {
     this.setStatus('LOADING');
 
     // Server-side toggle: local-core uses the real orchestrator
-    if (process.env.DANTE_MODE === 'local-core') {
+    if (this.isLocalCoreMode()) {
       try {
         const conversationId = parsedRequest.data.conversationId
           || parsedRequest.data.sessionId
           || `local-${Date.now()}`;
 
         const ctx = parsedRequest.data.context;
-        const CORE_URL = process.env.DANTE_CORE_URL || 'http://localhost:3001';
         let previousMessages: { role: 'user' | 'assistant' | 'system'; content: string; timestamp?: string }[] = [];
 
         try {
-          const histRes = await fetch(`${CORE_URL}/api/conversations/${conversationId}/messages`, {
-            headers: { 'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}` },
-            // timeout of 3s for history to not block chat completely
-            signal: AbortSignal.timeout(3000)
-          });
-          const data = await histRes.json();
-          if (Array.isArray(data)) {
-            previousMessages = data;
+          const rawHistory = await fetchFromDanteCore(
+            `/api/conversations/${conversationId}/messages`,
+            3000
+          );
+          if (Array.isArray(rawHistory)) {
+            previousMessages = rawHistory;
           }
         } catch (e) {
           console.error("Failed to fetch message history:", e);
@@ -86,7 +119,7 @@ export class DanteBridgeImpl implements DanteBridge {
 
         this.setStatus('CONNECTED');
 
-        return {
+        const mappedResponse: DanteChatResponse = {
           message: {
             role: coreResponse.choices[0].message.role as "assistant" | "user" | "system",
             content: coreResponse.choices[0].message.content,
@@ -100,6 +133,13 @@ export class DanteBridgeImpl implements DanteBridge {
             totalTokens: coreResponse.usage.total_tokens
           } : undefined
         };
+
+        const validatedResponse = DanteChatResponseSchema.safeParse(mappedResponse);
+        if (!validatedResponse.success) {
+          throw new ValidationError(validatedResponse.error.format());
+        }
+
+        return validatedResponse.data;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
         const bridgeState: DanteBridgeState =
@@ -113,6 +153,170 @@ export class DanteBridgeImpl implements DanteBridge {
     this.setStatus('DISCONNECTED');
     const response = await this.provider.processChat(parsedRequest.data);
     return response;
+  }
+
+  async getHealth(): Promise<DanteHealthResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const coreHealth = await checkDanteHealth(4000);
+        const candidate = {
+          status:
+            coreHealth.status === "ok" || coreHealth.status === "degraded" || coreHealth.status === "down"
+              ? coreHealth.status
+              : ("ok" as const),
+          version: coreHealth.version || "1.0.0",
+          timestamp: new Date().toISOString(),
+        };
+        const parsed = DanteHealthResponseSchema.safeParse(candidate);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+      }
+    }
+
+    return this.provider.getHealth();
+  }
+
+  async getNeurons(): Promise<DanteNeuronsResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await fetchFromDanteCore('/api/neurons');
+        const parsed = DanteNeuronsResponseSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+      }
+    }
+    return this.provider.getNeurons();
+  }
+
+  async getAnalytics(): Promise<DanteAnalytics> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await fetchFromDanteCore('/api/analytics');
+        const parsed = DanteAnalyticsSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+      }
+    }
+    return this.provider.getAnalytics();
+  }
+
+  async getConversations(): Promise<DanteConversationsResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await fetchFromDanteCore('/api/conversations');
+        const parsed = DanteConversationsResponseSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+      }
+    }
+    return this.provider.getConversations();
+  }
+
+  async getLogs(): Promise<DanteLogsResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await fetchFromDanteCore('/api/logs');
+        const parsed = DanteLogsResponseSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+      }
+    }
+    return this.provider.getLogs();
+  }
+
+  async getProviders(): Promise<DanteProvidersResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = (await fetchFromDanteCore('/api/providers/status')) as {
+          providers?: unknown;
+        };
+        const rawList = Array.isArray(data?.providers) ? data.providers : data;
+        const parsed = DanteProvidersResponseSchema.safeParse(rawList);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+      }
+    }
+    return this.provider.getProviders();
+  }
+
+  async addProvider(payload: unknown): Promise<DanteProvidersResponse> {
+    return this.provider.addProvider(payload);
+  }
+
+  async removeProvider(id: string): Promise<DanteProvidersResponse> {
+    return this.provider.removeProvider(id);
+  }
+
+  async getConnections(): Promise<DanteConnectionsResponse> {
+    if (this.isLocalCoreMode()) {
+      const start = Date.now();
+      try {
+        const health = await checkDanteHealth(4000);
+        const latency = Date.now() - start;
+        this.setStatus('CONNECTED');
+        return this.provider.getConnections(true, latency, health.version);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Error de conexión (Timeout)';
+        this.setStatus('DEGRADED', errorMsg);
+        const fallback: DanteConnectionsResponse = [
+          {
+            id: 'dante-core',
+            name: 'Dante AI Core (local-core)',
+            status: 'offline',
+            details: `No disponible (${errorMsg}) — Respaldo local activo`,
+          },
+          {
+            id: 'dante-bridge-zod',
+            name: 'Dante Bridge (Frontera Zod v4)',
+            status: 'online',
+            details: 'Validación estricta z.safeParse() activa',
+          },
+          {
+            id: 'neon-db',
+            name: 'Neon Database (PostgreSQL)',
+            status: 'offline',
+            details: 'Desconectado',
+          },
+        ];
+        const parsed = DanteConnectionsResponseSchema.safeParse(fallback);
+        if (!parsed.success) {
+          throw new ValidationError(parsed.error.format());
+        }
+        return parsed.data;
+      }
+    }
+
+    return this.provider.getConnections(false);
   }
 }
 

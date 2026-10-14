@@ -1,41 +1,26 @@
-import { NextResponse } from 'next/server';
-import { checkDanteHealth } from '@/lib/dante-bridge/client';
+import { NextResponse } from "next/server";
+import { danteBridge } from "@/lib/dante-bridge";
+import { DanteConnectionsResponseSchema } from "@/contracts/dante";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const connections = [
-    {
-      id: 'dante-core',
-      name: 'Dante AI Core (Vercel API)',
-      status: 'offline',
-      details: 'Iniciando conexión...',
-    },
-    {
-      id: 'neon-db',
-      name: 'Neon Database (PostgreSQL)',
-      status: 'offline',
-      details: 'Desconectado',
-    }
-  ];
-
   try {
-    const start = Date.now();
-    const health = await checkDanteHealth();
-    const latency = Date.now() - start;
+    const connections = await danteBridge.getConnections();
+    const parsed = DanteConnectionsResponseSchema.safeParse(connections);
 
-    connections[0].status = latency > 1500 ? 'unstable' : 'online';
-    connections[0].details = `v${health.version || '1.0.0'} (${latency}ms)`;
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Respuesta de conexiones inválida." } },
+        { status: 500 }
+      );
+    }
 
-    // Asumimos que si Dante Core está en línea, la base de datos funciona.
-    // (En una implementación 100% real, el endpoint /health del Core validaría la conexión de Neon)
-    connections[1].status = latency > 2000 ? 'unstable' : 'online';
-    connections[1].details = 'Conectado de forma segura a través del Core';
-    
-  } catch (err: unknown) {
-    connections[0].status = 'offline';
-    connections[0].details = (err as Error).message || 'Error de conexión (Timeout)';
+    return NextResponse.json(parsed.data, { status: 200 });
+  } catch {
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "No fue posible verificar las conexiones." } },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json(connections);
 }
