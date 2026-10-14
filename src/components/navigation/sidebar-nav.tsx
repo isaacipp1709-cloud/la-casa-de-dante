@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
 
 export const navItems = [
@@ -24,7 +25,7 @@ export const navItems = [
   { href: "/logs", label: "Bitácora", icon: ScrollText },
 ];
 
-const disabledItems: Array<{ label: string; icon: any }> = [];
+const disabledItems: Array<{ label: string; icon: LucideIcon }> = [];
 
 export function isNavItemActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";

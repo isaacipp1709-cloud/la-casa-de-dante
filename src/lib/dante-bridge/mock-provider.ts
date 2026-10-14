@@ -6,7 +6,6 @@ import {
   DanteConversationsResponse,
   DanteLogsResponse,
   DanteProvidersResponse,
-  DanteProviderCreateRequest,
   DanteConnectionsResponse,
   DanteHealthResponse,
   DanteDocumentIngestionResponse,
