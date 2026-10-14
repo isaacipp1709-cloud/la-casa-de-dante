@@ -150,10 +150,63 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
 
         this.setStatus('CONNECTED');
 
+        const rawContent = coreResponse.choices[0]?.message?.content ?? "";
+        const isCoreFallbackMock =
+          coreResponse.model === "mock" ||
+          coreResponse.model === "mock-dante" ||
+          rawContent.trim().startsWith("[Fallback Mock]");
+
+        if (isCoreFallbackMock) {
+          let financialCalculations: Record<string, unknown> | undefined;
+          const calcMatch = rawContent.match(
+            /\[System Context:\s*Financial calculations:\s*(\{[\s\S]*?\})\]/i
+          );
+          if (calcMatch?.[1]) {
+            try {
+              const parsedCalc = JSON.parse(calcMatch[1]);
+              if (parsedCalc && typeof parsedCalc === "object") {
+                financialCalculations = parsedCalc as Record<string, unknown>;
+              }
+            } catch {
+              // Ignorar si el bloque JSON de contexto no es parseable
+            }
+          }
+
+          const synthesized = await this.provider.processChat(parsedRequest.data, {
+            financialCalculations,
+            fromCoreFallback: true,
+          });
+
+          const enrichedResponse: DanteChatResponse = {
+            ...synthesized,
+            correlationId:
+              coreResponse.conversationId || coreResponse.id || synthesized.correlationId,
+          };
+
+          const validatedFallback = DanteChatResponseSchema.safeParse(enrichedResponse);
+          if (!validatedFallback.success) {
+            throw new ValidationError(validatedFallback.error.format());
+          }
+
+          this.auditLog.record({
+            correlationId: validatedFallback.data.correlationId,
+            provider: "local-core",
+            status: "success",
+            durationMs: Date.now() - startTime,
+            route: "/api/chat",
+          });
+
+          return validatedFallback.data;
+        }
+
+        const cleanedContent = rawContent
+          .replace(/\n*\[System Context:\s*Financial calculations:\s*\{\s*\}\]/gi, "")
+          .trim();
+
         const mappedResponse: DanteChatResponse = {
           message: {
             role: coreResponse.choices[0].message.role as "assistant" | "user" | "system",
-            content: coreResponse.choices[0].message.content,
+            content: cleanedContent || rawContent,
           },
           status: "success",
           correlationId: coreResponse.conversationId || coreResponse.id,

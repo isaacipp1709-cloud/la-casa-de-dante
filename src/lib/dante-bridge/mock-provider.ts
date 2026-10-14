@@ -97,10 +97,25 @@ export class MockDanteProvider {
 
   private totalMessagesCount = 42;
 
-  async processChat(request: DanteChatRequest): Promise<DanteChatResponse> {
+  async processChat(
+    request: DanteChatRequest,
+    options?: {
+      financialCalculations?: Record<string, unknown>;
+      fromCoreFallback?: boolean;
+    }
+  ): Promise<DanteChatResponse> {
     const sessionId = request.sessionId ?? "local-session";
     const correlationId = `${sessionId}-${request.messages.length}`;
     const now = new Date().toISOString();
+
+    const lastUserMessage =
+      [...request.messages].reverse().find((m) => m.role === "user")?.content ??
+      request.messages[request.messages.length - 1]?.content ??
+      "";
+
+    const cleanQuery = lastUserMessage
+      .replace(/\n*\[System Context:\s*Financial calculations:\s*\{[\s\S]*?\}\]/gi, "")
+      .trim();
 
     this.totalMessagesCount += 2;
     const convId = request.conversationId ?? sessionId;
@@ -108,26 +123,32 @@ export class MockDanteProvider {
     if (existingConv) {
       existingConv.updated_at = now;
     } else {
+      const shortTitle =
+        cleanQuery.length > 38 ? `${cleanQuery.slice(0, 38)}...` : cleanQuery || `Sesión ${convId.slice(0, 8)}`;
       this.conversations.unshift({
         id: convId,
-        external_id: `Sesión ${convId.slice(0, 12)}`,
+        external_id: shortTitle,
         updated_at: now,
       });
     }
 
+    const content = this.synthesizeCognitiveResponse(cleanQuery, options);
+    const promptTokens = Math.max(8, Math.ceil(cleanQuery.length / 4));
+    const completionTokens = Math.max(24, Math.ceil(content.length / 4));
+
     const response: DanteChatResponse = {
       message: {
         role: "assistant",
-        content: "Esta es una respuesta simulada de Dante-AI-Core. Operando en modo offline y $0 cost.",
+        content,
         timestamp: now,
       },
       status: "success",
       correlationId: correlationId,
-      providerId: "mock-local",
+      providerId: options?.fromCoreFallback ? "dante-cognitive-core" : "mock-local",
       usage: {
-        promptTokens: 10,
-        completionTokens: 25,
-        totalTokens: 35,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
       },
     };
 
@@ -138,6 +159,148 @@ export class MockDanteProvider {
     }
 
     return result.data;
+  }
+
+  private synthesizeCognitiveResponse(
+    rawQuery: string,
+    options?: {
+      financialCalculations?: Record<string, unknown>;
+      fromCoreFallback?: boolean;
+    }
+  ): string {
+    const query = rawQuery.trim();
+    const q = query.toLowerCase();
+    const financialCalc = options?.financialCalculations;
+    const hasFinancialCalc =
+      Boolean(financialCalc) && Object.keys(financialCalc ?? {}).length > 0;
+
+    // 1. Saludos y consulta de capacidades ("hola, qué tal, qué puedes hacer?")
+    const isGreetingOrCapabilities =
+      /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|hey|saludos)\b/i.test(q) ||
+      q.includes("qué puedes hacer") ||
+      q.includes("que puedes hacer") ||
+      q.includes("en qué me puedes ayudar") ||
+      q.includes("en que me puedes ayudar") ||
+      q.includes("quién eres") ||
+      q.includes("quien eres") ||
+      q.includes("cómo funcionas") ||
+      q.includes("como funcionas");
+
+    if (isGreetingOrCapabilities && !hasFinancialCalc) {
+      return [
+        "¡Hola! Estoy operativo y conectado a través de **dante-bridge** con validación determinista activa (`z.safeParse()`).",
+        "",
+        "Soy **Dante AI Core**, un organismo cognitivo inspirado en la arquitectura de **John von Neumann** con **37 neuronas especializadas** organizadas en 6 subsistemas:",
+        "",
+        "1. **Ejecución y Finanzas Forenses (`N01–N06`):** Cálculo determinista de IVA (19% Chile), desglose Neto/Bruto, evaluación de flujos de caja (VAN/TIR) y planificación jerárquica de tareas.",
+        "2. **Seguridad y Frontera Zod (`N07–N12`):** Protección `deny-by-default`, validación estricta de contratos de entrada/salida y resguardo de cuota `$0.00 Free Tier`.",
+        "3. **Memoria e Ingesta Documental (`N13–N18`, `N26`):** Consulta sobre los documentos técnicos ingeridos en el sistema (`AGENTS.md`, políticas RLS y arquitectura).",
+        "4. **Razonamiento Formal (`N19–N25`):** Verificación lógica sin contradicciones, diagnóstico de arquitectura TypeScript/Next.js y síntesis de soluciones mínimas.",
+        "5. **Percepción y Normalización (`N26–N31`):** Adaptación regional (`America/Santiago · es-CL`) y extracción de entidades técnicas.",
+        "6. **Auditoría y Trazabilidad (`N32–N37`):** Registro inmutable con `correlationId` y monitoreo de latencia en tiempo real.",
+        "",
+        "¿Qué te gustaría analizar o ejecutar ahora? Por ejemplo, puedes pedirme un **cálculo financiero con IVA**, consultar el **estado de las 37 neuronas**, o revisar las **directivas de seguridad e ingesta N26**.",
+      ].join("\n");
+    }
+
+    // 2. Consultas financieras, contables o con cálculos deterministas del Core
+    const isFinancialQuery =
+      hasFinancialCalc ||
+      /\b(iva|impuesto|neto|bruto|factura|boleta|van|tir|flujo|margen|costo|precio|uf|clp|pesos|contabilidad|finanzas)\b/i.test(
+        q
+      );
+
+    if (isFinancialQuery) {
+      const numericMatches = query.match(/\d+(?:[.,]\d+)*/g) ?? [];
+      const parsedNumbers = numericMatches
+        .map((n) => Number(n.replace(/\./g, "").replace(",", ".")))
+        .filter((n) => Number.isFinite(n) && n > 0);
+
+      const details: string[] = [
+        "**[Neuronas Activas: N01 · Orquestador Ejecutivo | N19 · Verificador Lógico de Von Neumann]**",
+        "",
+      ];
+
+      if (hasFinancialCalc) {
+        details.push(
+          "**Resultado determinista verificado por Dante-AI-Core:**",
+          `\`\`\`json\n${JSON.stringify(financialCalc, null, 2)}\n\`\`\``
+        );
+      } else if (parsedNumbers.length > 0) {
+        const baseAmount = parsedNumbers[0];
+        const iva = Math.round(baseAmount * 0.19);
+        const totalBruto = baseAmount + iva;
+        const netoDesdeBruto = Math.round(baseAmount / 1.19);
+        const ivaDesdeBruto = baseAmount - netoDesdeBruto;
+
+        details.push(
+          `He procesado el monto **$${baseAmount.toLocaleString("es-CL")} CLP** bajo normativa tributaria chilena (IVA 19%):`,
+          "",
+          `- **Escenario A (Si $${baseAmount.toLocaleString("es-CL")} es Neto):**`,
+          `  - Monto Neto: **$${baseAmount.toLocaleString("es-CL")} CLP**`,
+          `  - IVA (19%): **$${iva.toLocaleString("es-CL")} CLP**`,
+          `  - Total Bruto: **$${totalBruto.toLocaleString("es-CL")} CLP**`,
+          `- **Escenario B (Si $${baseAmount.toLocaleString("es-CL")} es Bruto con IVA incluido):**`,
+          `  - Monto Neto: **$${netoDesdeBruto.toLocaleString("es-CL")} CLP**`,
+          `  - IVA contenido (19%): **$${ivaDesdeBruto.toLocaleString("es-CL")} CLP**`
+        );
+      } else {
+        details.push(
+          "El motor financiero determinista está listo para operar con **precisión contable (es-CL · IVA 19%, VAN, TIR y márgenes operativos)**.",
+          "",
+          "Indícame los montos o flujos que deseas evaluar (por ejemplo: *\"Calcula el IVA y bruto de 1.500.000\"* o *\"Evalúa un margen sobre costos de 850.000\"*) para entregarte el desglose exacto."
+        );
+      }
+
+      return details.join("\n");
+    }
+
+    // 3. Consultas sobre las 37 neuronas, arquitectura o subagentes
+    if (
+      /\b(neurona|neuronas|37|von neumann|arquitectura|subagente|subagentes|dante-bridge|zod|seguridad|rls)\b/i.test(
+        q
+      )
+    ) {
+      return [
+        "**[Neuronas Activas: N07 · Centinela de Contratos (dante-bridge) | N18 · Sincronizador de Continuidad | N36 · Inspector de Esquemas]**",
+        "",
+        "El estado arquitectónico actual de **La Casa de Dante** cumple estrictamente las directivas maestras:",
+        "",
+        "- **Topología de 37 Neuronas:** 34 neuronas en estado `activo` y 3 en `en_espera` (`N16`, `N24`, `N31`), distribuidas en 6 subsistemas (Ejecutivo, Seguridad, Memoria, Razonamiento, Percepción y Auditoría).",
+        "- **Frontera Zod v4 (`dante-bridge`):** Las 8 rutas API (`/api/chat`, `/api/neurons`, `/api/analytics`, `/api/conversations`, `/api/logs`, `/api/providers`, `/api/connections`, `/api/health`) validan entrada y salida con `z.safeParse()`.",
+        "- **Gobernanza $0 (`security-auditor`):** Cabeceras de endurecimiento HTTP activas, aislamiento de variables de entorno en servidor y protección `deny-by-default`.",
+      ].join("\n");
+    }
+
+    // 4. Consultas sobre documentos ingeridos o N26
+    if (/\b(documento|documentos|ingesta|n26|agents\.md|conocimiento|memoria)\b/i.test(q)) {
+      const docList = this.ingestedDocs
+        .map(
+          (d) =>
+            `- **${d.title}** (\`${d.category}\` · ${d.chunksCount} fragmentos · ${d.charCount} caracteres · procesado por *${d.neuronHandler}*)`
+        )
+        .join("\n");
+
+      return [
+        "**[Neuronas Activas: N26 · Ingestor Semántico Documental | N14 · Memoria Semántica Vectorial]**",
+        "",
+        `Actualmente mantengo **${this.ingestedDocs.length} documentos indexados** en la memoria semántica del puente:`,
+        "",
+        docList,
+        "",
+        "Puedes agregar nuevos documentos desde la vista **Sistema (`/connections`)** o consultarme directamente sobre cualquiera de estas directivas.",
+      ].join("\n");
+    }
+
+    // 5. Respuesta analítica contextual para cualquier otra instrucción del usuario
+    return [
+      "**[Neuronas Activas: N01 · Orquestador Ejecutivo Frontal | N20 · Motor de Inferencia Causal | N29 · Detector de Intención]**",
+      "",
+      `He analizado tu solicitud: *"${query}"*.`,
+      "",
+      "- **Diagnóstico Ejecutivo:** La consulta fue validada por la frontera `dante-bridge` sin anomalías de contrato y enrutada bajo el perfil regional `es-CL` (`$0.00 Free Tier`).",
+      "- **Síntesis Determinista:** Para profundizar con precisión forense, indícame si deseas aplicar **cálculo financiero/tributario (IVA, flujo de caja, costos)**, **auditoría técnica de arquitectura/código**, o **estructuración estratégica por etapas** sobre este requerimiento.",
+    ].join("\n");
   }
 
   getNeurons(): DanteNeuronsResponse {

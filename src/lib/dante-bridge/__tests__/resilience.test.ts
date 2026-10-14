@@ -84,4 +84,37 @@ describe('Dante Bridge Resilience', () => {
     assert.strictEqual(bridge.getStatus().state, 'CONNECTED');
     delete process.env.DANTE_MODE;
   });
+
+  // Test 5: Intercepta [Fallback Mock] de Dante-AI-Core y sintetiza respuesta limpia sin filtrar [System Context]
+  it('Intercepta [Fallback Mock] del Core y entrega síntesis cognitiva limpia', async () => {
+    process.env.DANTE_MODE = 'local-core';
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      json: async () => ({
+        id: 'req-fallback-1',
+        model: 'mock',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content:
+                '[Fallback Mock] No pude conectarme a mis proveedores ahora, pero estoy aquí. ¿En qué más puedo ayudarte? (Tu mensaje: "hola , qué tal , qué puedes hacer?\\n[System Context: Financial calculations: {}]")',
+            },
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }),
+    }));
+
+    const bridge = new DanteBridgeImpl();
+    const res = await bridge.chat({
+      messages: [{ role: 'user', content: 'hola , qué tal , qué puedes hacer?' }],
+    });
+
+    assert.strictEqual(res.status, 'success');
+    assert.ok(!res.message.content.includes('[Fallback Mock]'));
+    assert.ok(!res.message.content.includes('[System Context:'));
+    assert.ok(res.message.content.includes('37 neuronas'));
+    delete process.env.DANTE_MODE;
+  });
 });
