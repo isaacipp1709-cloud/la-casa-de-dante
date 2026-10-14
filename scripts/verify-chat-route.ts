@@ -5,7 +5,7 @@ import { GET as getAnalytics } from "../src/app/api/analytics/route";
 import { GET as getConversations } from "../src/app/api/conversations/route";
 import { GET as getLogs } from "../src/app/api/logs/route";
 import { GET as getProviders, POST as postProvider } from "../src/app/api/providers/route";
-import { GET as getConnections } from "../src/app/api/connections/route";
+import { GET as getConnections, POST as postConnections } from "../src/app/api/connections/route";
 import { GET as getHealth } from "../src/app/api/health/route";
 import {
   DanteChatResponseSchema,
@@ -16,6 +16,7 @@ import {
   DanteProvidersResponseSchema,
   DanteConnectionsResponseSchema,
   DanteHealthResponseSchema,
+  DanteDocumentIngestionResponseSchema,
 } from "../src/contracts/dante";
 
 async function createRequest(bodyStr: string) {
@@ -124,6 +125,7 @@ async function runTests() {
     logsRes,
     providersRes,
     connectionsRes,
+    docsRes,
     healthRes,
   ] = await Promise.all([
     getNeurons(),
@@ -131,7 +133,8 @@ async function runTests() {
     getConversations(),
     getLogs(),
     getProviders(),
-    getConnections(),
+    getConnections(new NextRequest("http://localhost/api/connections")),
+    getConnections(new NextRequest("http://localhost/api/connections?scope=documents")),
     getHealth(),
   ]);
 
@@ -141,6 +144,7 @@ async function runTests() {
   const logsOk = logsRes.status === 200 && DanteLogsResponseSchema.safeParse(await logsRes.json()).success;
   const providersOk = providersRes.status === 200 && DanteProvidersResponseSchema.safeParse(await providersRes.json()).success;
   const connectionsOk = connectionsRes.status === 200 && DanteConnectionsResponseSchema.safeParse(await connectionsRes.json()).success;
+  const docsOk = docsRes.status === 200 && DanteDocumentIngestionResponseSchema.safeParse(await docsRes.json()).success;
   const healthOk = healthRes.status === 200 && DanteHealthResponseSchema.safeParse(await healthRes.json()).success;
 
   const invalidProvReq = new NextRequest("http://localhost/api/providers", {
@@ -150,6 +154,17 @@ async function runTests() {
   });
   const invalidProvRes = await postProvider(invalidProvReq);
 
+  const validDocReq = new NextRequest("http://localhost/api/connections", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      title: "Directiva de Prueba N26",
+      category: "arquitectura",
+      content: "Contenido validado por DanteDocumentIngestionRequestSchema.",
+    }),
+  });
+  const validDocRes = await postConnections(validDocReq);
+
   if (
     neuronsOk &&
     analyticsOk &&
@@ -157,10 +172,12 @@ async function runTests() {
     logsOk &&
     providersOk &&
     connectionsOk &&
+    docsOk &&
     healthOk &&
-    invalidProvRes.status === 400
+    invalidProvRes.status === 400 &&
+    validDocRes.status === 201
   ) {
-    console.log("✅ OK: Las 8 rutas API están unificadas bajo danteBridge y validadas con z.safeParse().");
+    console.log("✅ OK: Las 8 rutas API e ingestión N26 están unificadas bajo danteBridge y validadas con z.safeParse().");
   } else {
     console.error("❌ Falló TEST 7 en alguna ruta API unificada.", {
       neuronsOk,
@@ -169,8 +186,10 @@ async function runTests() {
       logsOk,
       providersOk,
       connectionsOk,
+      docsOk,
       healthOk,
       invalidProvStatus: invalidProvRes.status,
+      validDocStatus: validDocRes.status,
     });
     process.exit(1);
   }

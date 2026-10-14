@@ -7,6 +7,7 @@ import {
   DanteProvidersResponse,
   DanteConnectionsResponse,
   DanteHealthResponse,
+  DanteDocumentIngestionResponse,
 } from "./types";
 import {
   DanteChatRequestSchema,
@@ -27,6 +28,15 @@ import {
   checkDanteHealth,
   fetchFromDanteCore,
 } from "./client";
+import {
+  AuditLogPort,
+  InMemoryAuditLogAdapter,
+} from "@/lib/orchestrator/ports/audit-log.port";
+import {
+  CorrelationIdGenerator,
+  DeterministicCorrelationIdGenerator,
+} from "@/lib/orchestrator/ports/correlation-id.port";
+import { LlmGatewayPort } from "@/lib/orchestrator/ports/llm-gateway.port";
 
 export interface DanteBridge {
   chat(request: unknown): Promise<DanteChatResponse>;
@@ -40,18 +50,31 @@ export interface DanteBridge {
   addProvider(payload: unknown): Promise<DanteProvidersResponse>;
   removeProvider(id: string): Promise<DanteProvidersResponse>;
   getConnections(): Promise<DanteConnectionsResponse>;
+  getIngestedDocuments(): Promise<DanteDocumentIngestionResponse>;
+  ingestDocument(payload: unknown): Promise<DanteDocumentIngestionResponse>;
 }
 
-export class DanteBridgeImpl implements DanteBridge {
+export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
   private provider: MockDanteProvider;
   private status: BridgeStatus;
+  private auditLog: AuditLogPort;
+  private correlationGen: CorrelationIdGenerator;
 
-  constructor() {
+  constructor(
+    auditLog: AuditLogPort = new InMemoryAuditLogAdapter(),
+    correlationGen: CorrelationIdGenerator = new DeterministicCorrelationIdGenerator()
+  ) {
     this.provider = new MockDanteProvider();
+    this.auditLog = auditLog;
+    this.correlationGen = correlationGen;
     this.status = {
       state: 'LOADING',
       lastCheckedAt: new Date().toISOString(),
     };
+  }
+
+  async complete(request: unknown): Promise<DanteChatResponse> {
+    return this.chat(request);
   }
 
   getStatus(): BridgeStatus {
@@ -71,9 +94,17 @@ export class DanteBridgeImpl implements DanteBridge {
   }
 
   async chat(payload: unknown): Promise<DanteChatResponse> {
+    const startTime = Date.now();
     const parsedRequest = DanteChatRequestSchema.safeParse(payload);
 
     if (!parsedRequest.success) {
+      this.auditLog.record({
+        correlationId: this.correlationGen.next("invalid-req"),
+        provider: "mock",
+        status: "error",
+        durationMs: Date.now() - startTime,
+        route: "/api/chat",
+      });
       throw new ValidationError(parsedRequest.error.format());
     }
 
@@ -84,7 +115,7 @@ export class DanteBridgeImpl implements DanteBridge {
       try {
         const conversationId = parsedRequest.data.conversationId
           || parsedRequest.data.sessionId
-          || `local-${Date.now()}`;
+          || this.correlationGen.next("local");
 
         const ctx = parsedRequest.data.context;
         let previousMessages: { role: 'user' | 'assistant' | 'system'; content: string; timestamp?: string }[] = [];
@@ -139,12 +170,27 @@ export class DanteBridgeImpl implements DanteBridge {
           throw new ValidationError(validatedResponse.error.format());
         }
 
+        this.auditLog.record({
+          correlationId: validatedResponse.data.correlationId,
+          provider: "local-core",
+          status: "success",
+          durationMs: Date.now() - startTime,
+          route: "/api/chat",
+        });
+
         return validatedResponse.data;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
         const bridgeState: DanteBridgeState =
           errorMsg === 'TIMEOUT' ? 'DEGRADED' : 'ERROR';
         this.setStatus(bridgeState, errorMsg);
+        this.auditLog.record({
+          correlationId: this.correlationGen.next("core-err"),
+          provider: "local-core",
+          status: "error",
+          durationMs: Date.now() - startTime,
+          route: "/api/chat",
+        });
         throw error;
       }
     }
@@ -152,6 +198,13 @@ export class DanteBridgeImpl implements DanteBridge {
     // Mock mode: Core not involved
     this.setStatus('DISCONNECTED');
     const response = await this.provider.processChat(parsedRequest.data);
+    this.auditLog.record({
+      correlationId: response.correlationId,
+      provider: "mock",
+      status: "success",
+      durationMs: Date.now() - startTime,
+      route: "/api/chat",
+    });
     return response;
   }
 
@@ -233,20 +286,31 @@ export class DanteBridgeImpl implements DanteBridge {
   }
 
   async getLogs(): Promise<DanteLogsResponse> {
+    const recentAudit = this.auditLog.getRecentLogs();
     if (this.isLocalCoreMode()) {
       try {
         const data = await fetchFromDanteCore('/api/logs');
         const parsed = DanteLogsResponseSchema.safeParse(data);
         if (parsed.success) {
           this.setStatus('CONNECTED');
-          return parsed.data;
+          return {
+            logs: [...recentAudit, ...parsed.data.logs],
+          };
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
         this.setStatus('DEGRADED', errorMsg);
       }
     }
-    return this.provider.getLogs();
+    const baseLogs = this.provider.getLogs();
+    const merged = {
+      logs: [...recentAudit, ...baseLogs.logs],
+    };
+    const validated = DanteLogsResponseSchema.safeParse(merged);
+    if (!validated.success) {
+      throw new ValidationError(validated.error.format());
+    }
+    return validated.data;
   }
 
   async getProviders(): Promise<DanteProvidersResponse> {
@@ -317,6 +381,34 @@ export class DanteBridgeImpl implements DanteBridge {
     }
 
     return this.provider.getConnections(false);
+  }
+
+  async getIngestedDocuments(): Promise<DanteDocumentIngestionResponse> {
+    return this.provider.getIngestedDocuments();
+  }
+
+  async ingestDocument(payload: unknown): Promise<DanteDocumentIngestionResponse> {
+    const startTime = Date.now();
+    try {
+      const result = this.provider.ingestDocument(payload);
+      this.auditLog.record({
+        correlationId: this.correlationGen.next("ingest"),
+        provider: "mock",
+        status: "success",
+        durationMs: Date.now() - startTime,
+        route: "/api/connections",
+      });
+      return result;
+    } catch (error) {
+      this.auditLog.record({
+        correlationId: this.correlationGen.next("ingest-err"),
+        provider: "mock",
+        status: "error",
+        durationMs: Date.now() - startTime,
+        route: "/api/connections",
+      });
+      throw error;
+    }
   }
 }
 

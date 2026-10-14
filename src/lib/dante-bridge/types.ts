@@ -16,6 +16,9 @@ import {
   DanteProviderCreateRequestSchema,
   DanteConnectionSchema,
   DanteConnectionsResponseSchema,
+  DanteDocumentIngestionRequestSchema,
+  DanteIngestedDocumentSchema,
+  DanteDocumentIngestionResponseSchema,
 } from "@/contracts/dante";
 
 export type DanteMessage = z.infer<typeof DanteMessageSchema>;
@@ -34,3 +37,6 @@ export type DanteProvidersResponse = z.infer<typeof DanteProvidersResponseSchema
 export type DanteProviderCreateRequest = z.infer<typeof DanteProviderCreateRequestSchema>;
 export type DanteConnection = z.infer<typeof DanteConnectionSchema>;
 export type DanteConnectionsResponse = z.infer<typeof DanteConnectionsResponseSchema>;
+export type DanteDocumentIngestionRequest = z.infer<typeof DanteDocumentIngestionRequestSchema>;
+export type DanteIngestedDocument = z.infer<typeof DanteIngestedDocumentSchema>;
+export type DanteDocumentIngestionResponse = z.infer<typeof DanteDocumentIngestionResponseSchema>;

@@ -69,19 +69,22 @@ async function runVerification() {
   const logs = await danteBridge.getLogs();
   const providers = await danteBridge.getProviders();
   const connections = await danteBridge.getConnections();
+  const ingestedDocs = await danteBridge.getIngestedDocuments();
 
   if (
+    neurons.length !== 37 ||
     !DanteNeuronsResponseSchema.safeParse(neurons).success ||
     !DanteAnalyticsSchema.safeParse(analytics).success ||
     !DanteConversationsResponseSchema.safeParse(conversations).success ||
     !DanteLogsResponseSchema.safeParse(logs).success ||
     !DanteProvidersResponseSchema.safeParse(providers).success ||
-    !DanteConnectionsResponseSchema.safeParse(connections).success
+    !DanteConnectionsResponseSchema.safeParse(connections).success ||
+    ingestedDocs.length < 2
   ) {
-    console.error("❌ Falló la validación de alguno de los esquemas unificados del puente.");
+    console.error("❌ Falló la validación de alguno de los esquemas unificados del puente o de las 37 neuronas.");
     process.exit(1);
   }
-  console.log("✅ Todos los esquemas (Neuronas, Analítica, Conversaciones, Logs, Proveedores, Conexiones) validados con z.safeParse().");
+  console.log("✅ Todos los esquemas (37 Neuronas, Analítica, Conversaciones, Logs, Proveedores, Conexiones, Documentos) validados con z.safeParse().");
 
   console.log("\n=== TODAS LAS PRUEBAS PASARON ===");
 }

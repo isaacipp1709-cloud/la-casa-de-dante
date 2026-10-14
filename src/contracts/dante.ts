@@ -6,11 +6,13 @@ export const DanteMessageSchema = z.object({
   timestamp: z.string().datetime().optional(),
 });
 
+export const DanteChatMessageSchema = DanteMessageSchema;
+
 export const DanteChatRequestSchema = z.object({
   messages: z.array(DanteMessageSchema).min(1),
   sessionId: z.string().optional(),
-  conversationId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
+  conversationId: z.string().min(1).optional(),
+  userId: z.string().min(1).optional(),
   context: z.object({
     timezone: z.string().default('UTC'),
     locale: z.string().default('es-CL'),
@@ -44,6 +46,8 @@ export const DanteNeuronSchema = z.object({
   category: z.string().min(1),
   description: z.string().min(1),
   lastExecution: z.string().datetime(),
+  latencyMs: z.number().nonnegative().optional(),
+  activationsToday: z.number().int().nonnegative().optional(),
 });
 
 export const DanteNeuronsResponseSchema = z.array(DanteNeuronSchema);
@@ -99,6 +103,24 @@ export const DanteConnectionSchema = z.object({
 });
 
 export const DanteConnectionsResponseSchema = z.array(DanteConnectionSchema);
+
+export const DanteDocumentIngestionRequestSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  content: z.string().trim().min(10).max(50000),
+  category: z.enum(["arquitectura", "seguridad", "memoria", "general"]).default("arquitectura"),
+});
+
+export const DanteIngestedDocumentSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  category: z.enum(["arquitectura", "seguridad", "memoria", "general"]),
+  chunksCount: z.number().int().positive(),
+  charCount: z.number().int().positive(),
+  ingestedAt: z.string().datetime(),
+  neuronHandler: z.literal("N26 · Ingestor Semántico Documental"),
+});
+
+export const DanteDocumentIngestionResponseSchema = z.array(DanteIngestedDocumentSchema);
 
 // Bridge state machine
 export type DanteBridgeState =
