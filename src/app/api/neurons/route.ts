@@ -1,17 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { danteBridge } from "@/lib/dante-bridge";
+import { DanteNeuronsResponseSchema } from "@/contracts/dante";
 
-const CORE_URL = process.env.DANTE_CORE_URL || 'http://localhost:3001';
-const CORE_TOKEN = process.env.DANTE_CORE_TOKEN || '';
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const res = await fetch(`${CORE_URL}/api/neurons`, {
-      headers: { 'Authorization': `Bearer ${CORE_TOKEN}` }
-    });
-    
-    if (!res.ok) return NextResponse.json([]);
-    return NextResponse.json(await res.json());
+    const neurons = await danteBridge.getNeurons();
+    const parsed = DanteNeuronsResponseSchema.safeParse(neurons);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Respuesta inválida del puente." } },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(parsed.data, { status: 200 });
   } catch {
-    return NextResponse.json([]);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "No fue posible obtener las neuronas." } },
+      { status: 500 }
+    );
   }
 }

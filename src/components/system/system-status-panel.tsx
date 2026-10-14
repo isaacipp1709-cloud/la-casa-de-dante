@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Server, Activity, Database, Radio, Network, Loader } from "lucide-react";
+import { Server, Activity, Database, Radio, ShieldCheck, Loader, Brain } from "lucide-react";
 
 type ConnStatus = "online" | "unstable" | "offline";
 
@@ -16,6 +16,18 @@ interface Analytics {
   totalConversations: number;
   totalMessages: number;
   averageLatencyMs: number;
+}
+
+interface ProviderInfo {
+  id: string;
+  name: string;
+  category: string;
+  is_active: boolean;
+}
+
+interface NeuronInfo {
+  id: string;
+  status: "activo" | "en_espera" | "degradado";
 }
 
 const DOT: Record<ConnStatus, string> = {
@@ -33,13 +45,17 @@ const LABEL: Record<ConnStatus, string> = {
 export function SystemStatusPanel() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [neurons, setNeurons] = useState<NeuronInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     try {
-      const [connRes, analyticsRes] = await Promise.allSettled([
+      const [connRes, analyticsRes, provRes, neurRes] = await Promise.allSettled([
         fetch("/api/connections"),
         fetch("/api/analytics"),
+        fetch("/api/providers"),
+        fetch("/api/neurons"),
       ]);
 
       if (connRes.status === "fulfilled" && connRes.value.ok) {
@@ -50,6 +66,16 @@ export function SystemStatusPanel() {
       if (analyticsRes.status === "fulfilled" && analyticsRes.value.ok) {
         const data: Analytics = await analyticsRes.value.json();
         setAnalytics(data);
+      }
+
+      if (provRes.status === "fulfilled" && provRes.value.ok) {
+        const data: ProviderInfo[] = await provRes.value.json();
+        if (Array.isArray(data)) setProviders(data);
+      }
+
+      if (neurRes.status === "fulfilled" && neurRes.value.ok) {
+        const data: NeuronInfo[] = await neurRes.value.json();
+        if (Array.isArray(data)) setNeurons(data);
       }
     } catch {
       // Silently fail — panel shows last known state
@@ -65,7 +91,11 @@ export function SystemStatusPanel() {
   }, []);
 
   const coreConn = connections.find((c) => c.id === "dante-core");
+  const zodConn = connections.find((c) => c.id === "dante-bridge-zod");
   const dbConn = connections.find((c) => c.id === "neon-db");
+  const activeProviders = providers.filter((p) => p.is_active);
+  const primaryProvider = activeProviders[0];
+  const activeNeuronsCount = neurons.filter((n) => n.status === "activo").length;
 
   return (
     <aside
@@ -104,6 +134,43 @@ export function SystemStatusPanel() {
           </p>
         </div>
 
+        {/* Frontera Zod (dante-bridge) */}
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800/50">
+          <div className="flex items-center gap-2 mb-1 text-zinc-300">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="text-[13px] font-medium">Frontera Zod</span>
+          </div>
+          <div className="flex items-center gap-2 ml-6">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                zodConn ? DOT[zodConn.status] : "bg-emerald-500"
+              }`}
+            />
+            <p className="text-[11px] text-zinc-500 font-mono leading-relaxed">
+              {loading
+                ? "..."
+                : zodConn
+                ? zodConn.details
+                : "Validación z.safeParse() activa"}
+            </p>
+          </div>
+        </div>
+
+        {/* Matriz Cognitiva (37 Neuronas) */}
+        <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800/50">
+          <div className="flex items-center gap-2 mb-1 text-zinc-300">
+            <Brain className="w-3.5 h-3.5 text-sky-400" />
+            <span className="text-[13px] font-medium">Matriz Cognitiva</span>
+          </div>
+          <p className="text-[11px] text-zinc-500 font-mono ml-6 leading-relaxed">
+            {loading
+              ? "..."
+              : neurons.length > 0
+              ? `${activeNeuronsCount}/${neurons.length} neuronas activas`
+              : "Sin datos"}
+          </p>
+        </div>
+
         {/* Proveedor activo */}
         <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800/50">
           <div className="flex items-center gap-2 mb-1 text-zinc-300">
@@ -111,55 +178,31 @@ export function SystemStatusPanel() {
             <span className="text-[13px] font-medium">Proveedor activo</span>
           </div>
           <p className="text-[11px] text-zinc-500 font-mono ml-6 leading-relaxed">
-            Dante-AI-Core (local-core)
+            {loading
+              ? "..."
+              : primaryProvider
+              ? `${primaryProvider.name} (${activeProviders.length} disp.)`
+              : "Dante-AI-Core (local-core)"}
           </p>
         </div>
 
-        {/* Red externa / bridge */}
-        <div
-          className={`p-3 rounded-lg border ${
-            coreConn?.status === "online"
-              ? "bg-zinc-900/40 border-zinc-800/50"
-              : "bg-zinc-900/20 border-zinc-800/30 opacity-70"
-          }`}
-        >
-          <div className="flex items-center gap-2 mb-1 text-zinc-400">
-            <Network className="w-3.5 h-3.5" />
-            <span className="text-[13px] font-medium">Red externa</span>
-          </div>
-          <div className="flex items-center gap-2 ml-6">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                coreConn ? DOT[coreConn.status] : "bg-zinc-600"
-              }`}
-            />
-            <p className="text-[11px] text-zinc-600 font-mono">
-              {loading
-                ? "..."
-                : coreConn
-                ? `Core: ${LABEL[coreConn.status]}`
-                : "Deshabilitada"}
-            </p>
-          </div>
-        </div>
-
-        {/* Persistencia (Neon via Core) */}
+        {/* Persistencia */}
         <div
           className={`p-3 rounded-lg border ${
             dbConn?.status === "online"
               ? "bg-zinc-900/40 border-zinc-800/50"
-              : "bg-zinc-900/20 border-zinc-800/30 opacity-70"
+              : "bg-zinc-900/20 border-zinc-800/30 opacity-85"
           }`}
         >
           <div className="flex items-center gap-2 mb-1 text-zinc-400">
             <Database className="w-3.5 h-3.5" />
             <span className="text-[13px] font-medium">Persistencia</span>
           </div>
-          <p className="text-[11px] text-zinc-600 font-mono ml-6 leading-relaxed">
+          <p className="text-[11px] text-zinc-500 font-mono ml-6 leading-relaxed">
             {loading
               ? "..."
               : dbConn
-              ? `Neon: ${LABEL[dbConn.status]}`
+              ? `${LABEL[dbConn.status]} — ${dbConn.details}`
               : "No configurada"}
           </p>
         </div>
@@ -176,7 +219,7 @@ export function SystemStatusPanel() {
             <Radio className="w-3.5 h-3.5" />
             <span className="text-[13px] font-medium">Telemetría</span>
           </div>
-          <p className="text-[11px] text-zinc-600 font-mono ml-6 leading-relaxed">
+          <p className="text-[11px] text-zinc-500 font-mono ml-6 leading-relaxed">
             {loading
               ? "..."
               : analytics

@@ -1,6 +1,23 @@
 import { NextRequest } from "next/server";
 import { POST } from "../src/app/api/chat/route";
-import { DanteChatResponseSchema } from "../src/contracts/dante";
+import { GET as getNeurons } from "../src/app/api/neurons/route";
+import { GET as getAnalytics } from "../src/app/api/analytics/route";
+import { GET as getConversations } from "../src/app/api/conversations/route";
+import { GET as getLogs } from "../src/app/api/logs/route";
+import { GET as getProviders, POST as postProvider } from "../src/app/api/providers/route";
+import { GET as getConnections, POST as postConnections } from "../src/app/api/connections/route";
+import { GET as getHealth } from "../src/app/api/health/route";
+import {
+  DanteChatResponseSchema,
+  DanteNeuronsResponseSchema,
+  DanteAnalyticsSchema,
+  DanteConversationsResponseSchema,
+  DanteLogsResponseSchema,
+  DanteProvidersResponseSchema,
+  DanteConnectionsResponseSchema,
+  DanteHealthResponseSchema,
+  DanteDocumentIngestionResponseSchema,
+} from "../src/contracts/dante";
 
 async function createRequest(bodyStr: string) {
   return new NextRequest("http://localhost/api/chat", {
@@ -96,9 +113,86 @@ async function runTests() {
   // Restaurar el bridge
   danteBridge.chat = originalChat;
 
-  console.log("\n[TEST 5 & 6] ConfirmaciÃ³n de seguridad...");
-  console.log("âœ… No hay mensajes de usuario en los errores (verificado en TEST 3).");
-  console.log("âœ… No se leen variables de entorno ni se usa red (ejecuciÃ³n offline confirmada).");
+  console.log("\n[TEST 5 & 6] Confirmación de seguridad...");
+  console.log("✅ No hay mensajes de usuario en los errores (verificado en TEST 3).");
+  console.log("✅ No se leen variables de entorno ni se usa red (ejecución offline confirmada).");
+
+  console.log("\n[TEST 7] Verificando rutas API unificadas (/api/neurons, /api/analytics, /api/conversations, /api/logs, /api/providers, /api/connections, /api/health)...");
+  const [
+    neuronsRes,
+    analyticsRes,
+    conversationsRes,
+    logsRes,
+    providersRes,
+    connectionsRes,
+    docsRes,
+    healthRes,
+  ] = await Promise.all([
+    getNeurons(),
+    getAnalytics(),
+    getConversations(),
+    getLogs(),
+    getProviders(),
+    getConnections(new NextRequest("http://localhost/api/connections")),
+    getConnections(new NextRequest("http://localhost/api/connections?scope=documents")),
+    getHealth(),
+  ]);
+
+  const neuronsOk = neuronsRes.status === 200 && DanteNeuronsResponseSchema.safeParse(await neuronsRes.json()).success;
+  const analyticsOk = analyticsRes.status === 200 && DanteAnalyticsSchema.safeParse(await analyticsRes.json()).success;
+  const conversationsOk = conversationsRes.status === 200 && DanteConversationsResponseSchema.safeParse(await conversationsRes.json()).success;
+  const logsOk = logsRes.status === 200 && DanteLogsResponseSchema.safeParse(await logsRes.json()).success;
+  const providersOk = providersRes.status === 200 && DanteProvidersResponseSchema.safeParse(await providersRes.json()).success;
+  const connectionsOk = connectionsRes.status === 200 && DanteConnectionsResponseSchema.safeParse(await connectionsRes.json()).success;
+  const docsOk = docsRes.status === 200 && DanteDocumentIngestionResponseSchema.safeParse(await docsRes.json()).success;
+  const healthOk = healthRes.status === 200 && DanteHealthResponseSchema.safeParse(await healthRes.json()).success;
+
+  const invalidProvReq = new NextRequest("http://localhost/api/providers", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "", category: "" }),
+  });
+  const invalidProvRes = await postProvider(invalidProvReq);
+
+  const validDocReq = new NextRequest("http://localhost/api/connections", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      title: "Directiva de Prueba N26",
+      category: "arquitectura",
+      content: "Contenido validado por DanteDocumentIngestionRequestSchema.",
+    }),
+  });
+  const validDocRes = await postConnections(validDocReq);
+
+  if (
+    neuronsOk &&
+    analyticsOk &&
+    conversationsOk &&
+    logsOk &&
+    providersOk &&
+    connectionsOk &&
+    docsOk &&
+    healthOk &&
+    invalidProvRes.status === 400 &&
+    validDocRes.status === 201
+  ) {
+    console.log("✅ OK: Las 8 rutas API e ingestión N26 están unificadas bajo danteBridge y validadas con z.safeParse().");
+  } else {
+    console.error("❌ Falló TEST 7 en alguna ruta API unificada.", {
+      neuronsOk,
+      analyticsOk,
+      conversationsOk,
+      logsOk,
+      providersOk,
+      connectionsOk,
+      docsOk,
+      healthOk,
+      invalidProvStatus: invalidProvRes.status,
+      validDocStatus: validDocRes.status,
+    });
+    process.exit(1);
+  }
 
   console.log("\n=== TODAS LAS PRUEBAS DE ROUTE PASARON ===");
 }

@@ -1,41 +1,80 @@
-import { NextResponse } from 'next/server';
-import { checkDanteHealth } from '@/lib/dante-bridge/client';
+import { NextRequest, NextResponse } from "next/server";
+import { danteBridge } from "@/lib/dante-bridge";
+import {
+  DanteConnectionsResponseSchema,
+  DanteDocumentIngestionRequestSchema,
+  DanteDocumentIngestionResponseSchema,
+} from "@/contracts/dante";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const connections = [
-    {
-      id: 'dante-core',
-      name: 'Dante AI Core (Vercel API)',
-      status: 'offline',
-      details: 'Iniciando conexión...',
-    },
-    {
-      id: 'neon-db',
-      name: 'Neon Database (PostgreSQL)',
-      status: 'offline',
-      details: 'Desconectado',
-    }
-  ];
-
+export async function GET(request: NextRequest) {
   try {
-    const start = Date.now();
-    const health = await checkDanteHealth();
-    const latency = Date.now() - start;
+    const scope = request.nextUrl.searchParams.get("scope");
+    if (scope === "documents") {
+      const docs = await danteBridge.getIngestedDocuments();
+      const parsedDocs = DanteDocumentIngestionResponseSchema.safeParse(docs);
+      if (!parsedDocs.success) {
+        return NextResponse.json(
+          { error: { code: "INTERNAL_ERROR", message: "Respuesta de documentos inválida." } },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json(parsedDocs.data, { status: 200 });
+    }
 
-    connections[0].status = latency > 1500 ? 'unstable' : 'online';
-    connections[0].details = `v${health.version || '1.0.0'} (${latency}ms)`;
+    const connections = await danteBridge.getConnections();
+    const parsed = DanteConnectionsResponseSchema.safeParse(connections);
 
-    // Asumimos que si Dante Core está en línea, la base de datos funciona.
-    // (En una implementación 100% real, el endpoint /health del Core validaría la conexión de Neon)
-    connections[1].status = latency > 2000 ? 'unstable' : 'online';
-    connections[1].details = 'Conectado de forma segura a través del Core';
-    
-  } catch (err: unknown) {
-    connections[0].status = 'offline';
-    connections[0].details = (err as Error).message || 'Error de conexión (Timeout)';
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Respuesta de conexiones inválida." } },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(parsed.data, { status: 200 });
+  } catch {
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "No fue posible verificar las conexiones." } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: { code: "INVALID_REQUEST", message: "Payload JSON inválido." } },
+      { status: 400 }
+    );
   }
 
-  return NextResponse.json(connections);
+  const parsedInput = DanteDocumentIngestionRequestSchema.safeParse(rawBody);
+  if (!parsedInput.success) {
+    return NextResponse.json(
+      { error: { code: "INVALID_REQUEST", message: "Documento inválido para ingestión semántica." } },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const docs = await danteBridge.ingestDocument(parsedInput.data);
+    const parsedOutput = DanteDocumentIngestionResponseSchema.safeParse(docs);
+    if (!parsedOutput.success) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Respuesta de ingestión inválida." } },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json(parsedOutput.data, { status: 201 });
+  } catch {
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "No fue posible ingerir el documento." } },
+      { status: 500 }
+    );
+  }
 }

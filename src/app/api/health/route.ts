@@ -1,21 +1,26 @@
 import { NextResponse } from "next/server";
+import { danteBridge } from "@/lib/dante-bridge";
 import { DanteHealthResponseSchema } from "@/contracts/dante";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
-  const healthData = {
-    status: "ok",
-    version: "1.0.0",
-    timestamp: new Date().toISOString(),
-  };
+  try {
+    const healthData = await danteBridge.getHealth();
+    const parsed = DanteHealthResponseSchema.safeParse(healthData);
 
-  const parsed = DanteHealthResponseSchema.safeParse(healthData);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Health check validation failed" } },
+        { status: 500 }
+      );
+    }
 
-  if (!parsed.success) {
+    return NextResponse.json(parsed.data, { status: 200 });
+  } catch {
     return NextResponse.json(
-      { error: "Health check validation failed" },
+      { error: { code: "INTERNAL_ERROR", message: "Health check failed" } },
       { status: 500 }
     );
   }
-
-  return NextResponse.json(parsed.data);
 }

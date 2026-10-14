@@ -1,17 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { danteBridge } from "@/lib/dante-bridge";
+import { DanteConversationsResponseSchema } from "@/contracts/dante";
 
-const CORE_URL = process.env.DANTE_CORE_URL || 'http://localhost:3001';
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const response = await fetch(`${CORE_URL}/api/conversations`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}`,
-      },
-    });
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const conversations = await danteBridge.getConversations();
+    const parsed = DanteConversationsResponseSchema.safeParse(conversations);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Respuesta de conversaciones inválida." } },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(parsed.data, { status: 200 });
   } catch {
-    return NextResponse.json({ error: 'BRIDGE_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "No fue posible obtener el historial." } },
+      { status: 500 }
+    );
   }
 }
