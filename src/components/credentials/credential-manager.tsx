@@ -13,6 +13,7 @@ interface CredentialMetadata {
 }
 
 type Tone = "ok" | "error";
+type StorageMode = "durable" | "memory";
 
 const ERROR_MESSAGES: Record<string, string> = {
   UNAUTHORIZED: "Tu sesion no esta autenticada. Inicia sesion para gestionar credenciales.",
@@ -45,6 +46,12 @@ function formatDate(value: string): string {
   });
 }
 
+function readStorageMode(payload: unknown): StorageMode | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const value = (payload as { storage?: unknown }).storage;
+  return value === "durable" || value === "memory" ? value : null;
+}
+
 function readCredentials(payload: unknown): CredentialMetadata[] {
   if (typeof payload !== "object" || payload === null) return [];
   const raw = (payload as { credentials?: unknown }).credentials;
@@ -74,6 +81,7 @@ export function CredentialManager() {
   const [loading, setLoading] = useState(true);
   const [unauthenticated, setUnauthenticated] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [storageMode, setStorageMode] = useState<StorageMode | null>(null);
 
   const [providerId, setProviderId] = useState<string>("gemini");
   const [apiKey, setApiKey] = useState("");
@@ -90,6 +98,7 @@ export function CredentialManager() {
       if (response.status === 401) {
         setUnauthenticated(true);
         setCredentials([]);
+        setStorageMode(null);
         return;
       }
       if (!response.ok) {
@@ -99,6 +108,7 @@ export function CredentialManager() {
       }
       const payload: unknown = await response.json();
       setCredentials(readCredentials(payload));
+      setStorageMode(readStorageMode(payload));
     } catch {
       setListError("No se pudieron cargar tus credenciales.");
       setCredentials([]);
@@ -195,9 +205,21 @@ export function CredentialManager() {
   return (
     <div className="space-y-8">
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-        <div className="px-5 py-3 border-b border-zinc-800 flex items-center gap-2">
-          <KeyRound className="w-4 h-4 text-emerald-400" />
-          <h2 className="text-sm font-medium text-zinc-300">Credenciales propias (BYOK)</h2>
+        <div className="px-5 py-3 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-emerald-400" />
+            <h2 className="text-sm font-medium text-zinc-300">Credenciales propias (BYOK)</h2>
+          </div>
+          {storageMode === "durable" && (
+            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border text-emerald-400 border-emerald-900 bg-emerald-900/20">
+              Persistencia durable activa
+            </span>
+          )}
+          {storageMode === "memory" && (
+            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border text-amber-400 border-amber-900 bg-amber-900/20">
+              Persistencia temporal: los datos se pierden al reiniciar
+            </span>
+          )}
         </div>
 
         {unauthenticated ? (
