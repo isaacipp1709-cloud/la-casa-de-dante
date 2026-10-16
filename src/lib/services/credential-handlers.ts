@@ -7,6 +7,15 @@ import {
   isAllowedProvider,
 } from './credential-service';
 import type { OwnerResolution } from '../auth/server-owner';
+import {
+  ProviderAuthError,
+  ProviderNetworkError,
+  ProviderRateLimitError,
+  ProviderResponseError,
+  ProviderTimeoutError,
+  ProviderUnsupportedError,
+} from './provider-errors';
+import type { ProviderDispatch, ProviderRole } from './provider-dispatch';
 
 /**
  * Logica de los endpoints BYOK, con dependencias inyectables para poder probarla
@@ -19,19 +28,10 @@ export interface HandlerResult {
   body: Record<string, unknown>;
 }
 
-export interface ProviderDispatchInput {
-  providerId: string;
-  model?: string;
-  apiKey: string;
-  messages: Array<{ role: string; content: string }>;
-}
-
-export type ProviderDispatch = (input: ProviderDispatchInput) => Promise<{ content: string }>;
-
 export interface CredentialHandlerDeps {
   resolveOwner: (request: Request) => Promise<OwnerResolution>;
   createService: () => CredentialService;
-  /** Transporte hacia el proveedor. Si no existe, se responde NOT_CONFIGURED (nunca exito simulado). */
+  /** Transporte hacia el proveedor real. Sin el, la ejecucion no es posible. */
   dispatch?: ProviderDispatch;
 }
 
@@ -43,14 +43,20 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
 }
 
-/** Solo rol y contenido: cualquier otro campo del cliente (incluida una clave) se descarta. */
-function sanitizeMessages(value: unknown): Array<{ role: string; content: string }> {
+const ALLOWED_ROLES: readonly ProviderRole[] = ['user', 'assistant', 'system'];
+
+/** Solo rol valido y contenido no vacio: cualquier otro campo del cliente (incluida una clave) se descarta. */
+function sanitizeMessages(value: unknown): Array<{ role: ProviderRole; content: string }> {
   if (!Array.isArray(value)) return [];
-  const cleaned: Array<{ role: string; content: string }> = [];
+  const cleaned: Array<{ role: ProviderRole; content: string }> = [];
   for (const entry of value) {
     const item = asRecord(entry);
-    if (typeof item.role === 'string' && typeof item.content === 'string') {
-      cleaned.push({ role: item.role, content: item.content });
+    const role = item.role;
+    const content = item.content;
+    if (typeof role === 'string' && typeof content === 'string' && content.trim().length > 0) {
+      if ((ALLOWED_ROLES as readonly string[]).includes(role)) {
+        cleaned.push({ role: role as ProviderRole, content });
+      }
     }
   }
   return cleaned;
@@ -87,6 +93,29 @@ async function readJsonBody(request: Request): Promise<{ ok: true; body: Record<
   } catch {
     return { ok: false, result: fail(400, 'INVALID_REQUEST', 'JSON payload is invalid.') };
   }
+}
+
+/** Traduce respuestas y fallos del proveedor a codigos estables sin filtrar detalles sensibles. */
+function mapProviderFailure(error: unknown): HandlerResult {
+  if (error instanceof ProviderUnsupportedError) {
+    return fail(501, 'PROVIDER_NOT_SUPPORTED', 'The selected provider is not supported yet.');
+  }
+  if (error instanceof ProviderAuthError) {
+    return fail(401, 'PROVIDER_UNAUTHORIZED', 'The provider rejected the stored credential.');
+  }
+  if (error instanceof ProviderRateLimitError) {
+    return fail(429, 'PROVIDER_RATE_LIMITED', 'The provider rate limit has been reached.');
+  }
+  if (error instanceof ProviderTimeoutError) {
+    return fail(504, 'PROVIDER_TIMEOUT', 'The provider request timed out.');
+  }
+  if (error instanceof ProviderNetworkError) {
+    return fail(502, 'PROVIDER_NETWORK_ERROR', 'Could not reach the provider.');
+  }
+  if (error instanceof ProviderResponseError) {
+    return fail(502, 'PROVIDER_ERROR', 'The provider request failed.');
+  }
+  return fail(500, 'INTERNAL_ERROR', 'Unexpected server error.');
 }
 
 /** POST /api/credentials: guarda la clave cifrada y devuelve solo metadatos. */
@@ -136,7 +165,10 @@ export async function handleListCredentials(request: Request, deps: CredentialHa
   return { status: 200, body: { credentials: serviceResult.service.listMetadata(owner.ownerId) } };
 }
 
-/** POST /api/chat/credentials: usa credentialId, nunca la clave del cliente. */
+/**
+ * POST /api/chat/credentials: resuelve el credentialId del propietario autenticado,
+ * descifra la clave y ejecuta el proveedor real. La clave nunca sale de este alcance.
+ */
 export async function handleChatWithCredential(request: Request, deps: CredentialHandlerDeps): Promise<HandlerResult> {
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
@@ -152,6 +184,7 @@ export async function handleChatWithCredential(request: Request, deps: Credentia
     return fail(400, 'INVALID_REQUEST', 'credentialId is required.');
   }
 
+  // Verificacion de propietario antes de tocar la clave.
   let resolved: { providerId: string; model?: string; apiKey: string };
   try {
     resolved = serviceResult.service.resolveForOwner(credentialId, owner.ownerId);
@@ -164,15 +197,21 @@ export async function handleChatWithCredential(request: Request, deps: Credentia
   }
 
   if (!deps.dispatch) {
-    return fail(501, 'NOT_CONFIGURED', 'Provider dispatch for stored credentials is not configured.');
+    return fail(500, 'INTERNAL_ERROR', 'Provider dispatch is unavailable.');
+  }
+
+  const messages = sanitizeMessages(parsed.body.messages);
+  if (messages.length === 0) {
+    return fail(400, 'INVALID_REQUEST', 'At least one valid message is required.');
   }
 
   try {
+    // La clave descifrada solo existe en este frame y no se registra.
     const result = await deps.dispatch({
       providerId: resolved.providerId,
       model: resolved.model,
       apiKey: resolved.apiKey,
-      messages: sanitizeMessages(parsed.body.messages),
+      messages,
     });
     return {
       status: 200,
@@ -184,7 +223,7 @@ export async function handleChatWithCredential(request: Request, deps: Credentia
         usedCredential: true,
       },
     };
-  } catch {
-    return fail(502, 'PROVIDER_ERROR', 'Provider request failed.');
+  } catch (error) {
+    return mapProviderFailure(error);
   }
 }

@@ -4,8 +4,9 @@ import { CredentialService, type CredentialRecord } from '@/lib/services/credent
 import {
   handleChatWithCredential,
   type CredentialHandlerDeps,
-  type ProviderDispatch,
 } from '@/lib/services/credential-handlers';
+import { createProviderDispatch } from '@/lib/services/provider-dispatch';
+import { defaultProviderAdapters } from '@/lib/services/provider-adapters';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,11 +19,8 @@ function createService(): CredentialService {
   return new CredentialService(process.env.CREDENTIAL_MASTER_SECRET, globalStore.__danteCredentialStore);
 }
 
-/**
- * Transporte real hacia el proveedor: pendiente de configuracion explicita.
- * Se devuelve NOT_CONFIGURED en lugar de simular una respuesta del modelo.
- */
-const dispatch: ProviderDispatch | undefined = undefined;
+/** Transporte real: gemini usa la clave resuelta del propietario autenticado. */
+const dispatch = createProviderDispatch(defaultProviderAdapters);
 
 const deps: CredentialHandlerDeps = {
   resolveOwner: (request) => resolveOwnerFromRequest(request),
