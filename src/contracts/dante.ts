@@ -22,7 +22,7 @@ export const DanteChatRequestSchema = z.object({
     constraints: z.array(z.string()).optional(),
   }).optional(),
   providerId: z.string().optional(),
-  credentialId?: z.string().optional(), // BYOK: reference, never the key
+  credentialId: z.string().optional(), // BYOK: reference to stored credential, never the key
   model: z.string().optional(),
 });
 
@@ -92,6 +92,7 @@ export const DanteProviderStatusSchema = z.object({
   usageToday: z.number().int().nonnegative().default(0),
   dailyLimit: z.number().int().nonnegative().default(1000),
   is_public: z.boolean().default(false),
+  models: z.array(z.string()).default([]),
 });
 
 export const DanteProvidersResponseSchema = z.array(DanteProviderStatusSchema);

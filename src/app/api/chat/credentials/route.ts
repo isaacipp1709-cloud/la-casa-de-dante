@@ -1,30 +1,36 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { resolveOwnerFromRequest } from '@/lib/auth/server-owner';
+import { CredentialService, type CredentialRecord } from '@/lib/services/credential-service';
+import {
+  handleChatWithCredential,
+  type CredentialHandlerDeps,
+  type ProviderDispatch,
+} from '@/lib/services/credential-handlers';
 
-import { NextRequest, NextResponse } from "next/server";
+export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Server auth required." } }, { status: 401 });
+const globalStore = globalThis as unknown as { __danteCredentialStore?: Map<string, CredentialRecord> };
+
+function createService(): CredentialService {
+  if (!globalStore.__danteCredentialStore) {
+    globalStore.__danteCredentialStore = new Map<string, CredentialRecord>();
   }
-  
-  try {
-    const { content, credentialId, providerId, model } = await req.json();
-    
-    if (!credentialId) {
-      return NextResponse.json({ error: { code: "INVALID_REQUEST", message: "credentialId is required. Key not sent in message." } }, { status: 400 });
-    }
-    
-    // Use credentialId to retrieve key from secure store (not from message)
-    // This ensures the key is never re-sent in chat messages
-    
-    return NextResponse.json({
-      content,
-      providerId,
-      model,
-      credentialUsed: credentialId,
-      note: "Actual LLM call requires server-side credential lookup by credentialId, not message payload."
-    }, { status: 200 });
-  } catch {
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Chat with credential failed." } }, { status: 500 });
-  }
+  return new CredentialService(process.env.CREDENTIAL_MASTER_SECRET, globalStore.__danteCredentialStore);
+}
+
+/**
+ * Transporte real hacia el proveedor: pendiente de configuracion explicita.
+ * Se devuelve NOT_CONFIGURED en lugar de simular una respuesta del modelo.
+ */
+const dispatch: ProviderDispatch | undefined = undefined;
+
+const deps: CredentialHandlerDeps = {
+  resolveOwner: (request) => resolveOwnerFromRequest(request),
+  createService,
+  dispatch,
+};
+
+export async function POST(request: NextRequest) {
+  const result = await handleChatWithCredential(request, deps);
+  return NextResponse.json(result.body, { status: result.status });
 }
