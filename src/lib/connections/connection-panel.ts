@@ -82,6 +82,11 @@ export function composeConnectionsPanel(input: ComposeConnectionsInput): Connect
 
   const storage = input.core?.storage ?? 'temporary';
   const hasByok = Object.keys(byokCounts).length > 0;
+  // "Durable" exige base configurada Y verificada en el estado del Core.
+  const databaseVerified = (input.core?.connections ?? []).some(
+    (connection) => connection.id === 'database.neon' && connection.status === 'active',
+  );
+  const durableVerified = storage === 'durable' && databaseVerified;
 
   connections.push({
     id: 'credentials.byok',
@@ -91,10 +96,11 @@ export function composeConnectionsPanel(input: ComposeConnectionsInput): Connect
     canToggle: false,
     credentialSource: hasByok ? 'byok' : 'none',
     byokAvailable: hasByok,
-    status: storage === 'durable' ? 'active' : 'incomplete',
-    detail:
-      storage === 'durable'
-        ? 'Persistencia durable activa: el Core cifra y guarda en su base.'
+    status: durableVerified ? 'active' : 'incomplete',
+    detail: durableVerified
+      ? 'Persistencia durable verificada: el Core cifra y guarda en su base.'
+      : storage === 'durable'
+        ? 'Base configurada pero no verificada por el Core.'
         : 'Persistencia temporal: los datos se pierden al reiniciar.',
   });
 
