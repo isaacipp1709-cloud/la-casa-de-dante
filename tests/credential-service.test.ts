@@ -96,17 +96,17 @@ describe('BYOK: endpoints y aislamiento por propietario', () => {
   it('4. permite acceso solo al propietario (resolucion correcta)', async () => {
     const secret = 'sk-owner-isolation';
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'groq', apiKey: secret });
-    const resolved = service.resolveForOwner(metadata.credentialId, 'user-a');
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'groq', apiKey: secret });
+    const resolved = await service.resolveForOwner(metadata.credentialId, 'user-a');
     assert.equal(resolved.apiKey, secret);
     assert.equal(resolved.providerId, 'groq');
   });
 
   it('5. rechaza credentialId de otro usuario con error generico 404', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: 'sk-owned-by-a' });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: 'sk-owned-by-a' });
 
-    assert.throws(() => service.resolveForOwner(metadata.credentialId, 'user-b'), CredentialNotFoundError);
+    await assert.rejects(async () => service.resolveForOwner(metadata.credentialId, 'user-b'), CredentialNotFoundError);
 
     let dispatchCalled = false;
     const deps = ownerDeps('user-b', async () => { dispatchCalled = true; return { content: 'should not happen' }; });
@@ -121,7 +121,7 @@ describe('BYOK: endpoints y aislamiento por propietario', () => {
 
   it('6. rechaza credentialId inexistente con el mismo error generico', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    assert.throws(() => service.resolveForOwner('does-not-exist', 'user-a'), CredentialNotFoundError);
+    await assert.rejects(async () => service.resolveForOwner('does-not-exist', 'user-a'), CredentialNotFoundError);
 
     const deps = ownerDeps('user-a');
     const response = await handleChatWithCredential(
@@ -192,9 +192,11 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     );
     assert.equal(response.status, 201);
 
-    const stored = deps.createService();
-    assert.equal(stored.listMetadata('attacker').length, 0, 'no se guarda bajo identidad del navegador');
-    assert.equal(stored.listMetadata('server-user-1').length, 1, 'se guarda bajo la identidad del servidor');
+    const listRequest = new Request('http://local/api/credentials');
+    const asAttacker = await deps.createService(listRequest).listMetadata('attacker');
+    const asServerUser = await deps.createService(listRequest).listMetadata('server-user-1');
+    assert.equal(asAttacker.length, 0, 'no se guarda bajo identidad del navegador');
+    assert.equal(asServerUser.length, 1, 'se guarda bajo la identidad del servidor');
   });
 
   it('resuelve por credentialId, pasa la clave al proveedor y no la devuelve', async () => {
@@ -202,7 +204,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     const captured: Array<{ providerId: string; model?: string; apiKey: string; messages: Array<{ role: string; content: string }> }> = [];
 
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: secret, model: 'gemini-2.0-flash' });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: secret });
 
     const deps: CredentialHandlerDeps = {
       resolveOwner: async () => ({ ok: true, ownerId: 'user-a' }),
@@ -213,6 +215,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     const response = await handleChatWithCredential(
       jsonRequest('http://local/api/chat/credentials', {
         credentialId: metadata.credentialId,
+        model: 'gemini-2.0-flash',
         messages: [{ role: 'user', content: 'hola', apiKey: 'sk-injected' }],
       }),
       deps,
@@ -234,7 +237,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
 
   it('responde error interno acotado si el despachador no esta cableado (via defensiva)', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: 'sk-no-dispatch' });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: 'sk-no-dispatch' });
     const deps = ownerDeps('user-a');
     deps.createService = () => service;
 

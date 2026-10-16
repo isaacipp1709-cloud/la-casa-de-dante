@@ -1,12 +1,19 @@
 import crypto from 'node:crypto';
 import { BYOK_PROVIDER_IDS, isAllowedProviderId } from '../credentials/provider-catalog';
+import {
+  InMemoryCredentialStore,
+  type CredentialRecord,
+  type CredentialStore,
+  type EncryptedCredentialPayload,
+} from '../credentials/credential-store';
 
 /**
  * Servicio unico de credenciales BYOK.
  * - Cifrado autenticado AES-256-GCM (authTag verificado al descifrar).
  * - CLAVE MAESTRA nunca se guarda en el repositorio: se deriva de CREDENTIAL_MASTER_SECRET.
+ * - La persistencia se delega en un CredentialStore (durable o en memoria).
  * - Aislamiento por propietario: toda lectura exige ownerId coincidente.
- * - Nunca expone la clave en texto plano fuera del resultado de resolveForOwner.
+ * - La clave en claro solo existe dentro de resolveForOwner, nunca se persiste.
  */
 
 export const CREDENTIAL_ALGORITHM = 'aes-256-gcm' as const;
@@ -53,27 +60,15 @@ export class UnsupportedProviderError extends Error {
   }
 }
 
-export interface EncryptedPayload {
-  algorithm: string;
-  iv: string;
-  authTag: string;
-  ciphertext: string;
-}
+/** Sobre cifrado tal como se persiste (sin la clave). */
+export type EncryptedPayload = EncryptedCredentialPayload;
 
-export interface CredentialRecord {
-  credentialId: string;
-  ownerId: string;
-  providerId: string;
-  model?: string;
-  createdAt: string;
-  encrypted: EncryptedPayload;
-}
+export type { CredentialRecord, CredentialStore } from '../credentials/credential-store';
 
 /** Metadatos seguros: nunca incluyen clave ni datos cifrados. */
 export interface CredentialMetadata {
   credentialId: string;
   providerId: string;
-  model?: string;
   createdAt: string;
   status: 'active';
 }
@@ -88,11 +83,11 @@ export function deriveMasterKey(masterSecret: string | undefined): Buffer {
 
 export class CredentialService {
   private readonly masterKey: Buffer;
-  private readonly store: Map<string, CredentialRecord>;
+  private readonly store: CredentialStore;
 
-  constructor(masterSecret: string | undefined, store?: Map<string, CredentialRecord>) {
+  constructor(masterSecret: string | undefined, store: CredentialStore = new InMemoryCredentialStore()) {
     this.masterKey = deriveMasterKey(masterSecret);
-    this.store = store ?? new Map<string, CredentialRecord>();
+    this.store = store;
   }
 
   /** Cifra con IV aleatorio de 12 bytes y devuelve los campos por separado. */
@@ -125,8 +120,8 @@ export class CredentialService {
     }
   }
 
-  /** Guarda la credencial asociada al propietario autenticado. Devuelve solo metadatos. */
-  save(input: { ownerId: string; providerId: string; apiKey: string; model?: string }): CredentialMetadata {
+  /** Cifra y persiste la credencial del propietario autenticado. Devuelve solo metadatos. */
+  async save(input: { ownerId: string; providerId: string; apiKey: string }): Promise<CredentialMetadata> {
     if (typeof input.ownerId !== 'string' || input.ownerId.length === 0) {
       throw new CredentialConfigurationError('ownerId is required');
     }
@@ -136,15 +131,16 @@ export class CredentialService {
     if (typeof input.apiKey !== 'string' || input.apiKey.trim().length === 0) {
       throw new CredentialConfigurationError('apiKey is required');
     }
+
     const record: CredentialRecord = {
       credentialId: crypto.randomUUID(),
       ownerId: input.ownerId,
       providerId: input.providerId,
-      model: input.model,
       createdAt: new Date().toISOString(),
       encrypted: this.encrypt(input.apiKey),
     };
-    this.store.set(record.credentialId, record);
+
+    await this.store.create(record);
     return toMetadata(record);
   }
 
@@ -152,44 +148,32 @@ export class CredentialService {
    * Elimina la credencial y sus datos cifrados asociados.
    * Inexistente y ajena producen el MISMO error generico: no hay borrado cruzado.
    */
-  deleteForOwner(credentialId: string, ownerId: string): void {
-    const record = this.store.get(credentialId);
-    if (!record || record.ownerId !== ownerId) {
-      throw new CredentialNotFoundError();
-    }
-    this.store.delete(credentialId);
+  async deleteForOwner(credentialId: string, ownerId: string): Promise<void> {
+    const deleted = await this.store.deleteByOwnerAndId(ownerId, credentialId);
+    if (!deleted) throw new CredentialNotFoundError();
   }
 
   /** Metadatos del propietario autenticado unicamente. */
-  listMetadata(ownerId: string): CredentialMetadata[] {
-    return Array.from(this.store.values())
-      .filter((record) => record.ownerId === ownerId)
-      .map(toMetadata);
+  async listMetadata(ownerId: string): Promise<CredentialMetadata[]> {
+    const records = await this.store.listByOwner(ownerId);
+    return records.map(toMetadata);
   }
 
   /**
    * Resuelve la credencial para su uso en chat.
    * Filtra por propietario: inexistente y ajena producen el MISMO error generico.
    */
-  resolveForOwner(credentialId: string, ownerId: string): { providerId: string; model?: string; apiKey: string } {
-    const record = this.store.get(credentialId);
-    if (!record || record.ownerId !== ownerId) {
-      throw new CredentialNotFoundError();
-    }
-    return {
-      providerId: record.providerId,
-      model: record.model,
-      apiKey: this.decrypt(record.encrypted),
-    };
+  async resolveForOwner(credentialId: string, ownerId: string): Promise<{ providerId: string; apiKey: string }> {
+    const record = await this.store.findByOwnerAndId(ownerId, credentialId);
+    if (!record) throw new CredentialNotFoundError();
+    return { providerId: record.providerId, apiKey: this.decrypt(record.encrypted) };
   }
-
 }
 
 function toMetadata(record: CredentialRecord): CredentialMetadata {
   return {
     credentialId: record.credentialId,
     providerId: record.providerId,
-    model: record.model,
     createdAt: record.createdAt,
     status: 'active',
   };

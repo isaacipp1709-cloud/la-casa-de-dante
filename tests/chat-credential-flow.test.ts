@@ -43,7 +43,7 @@ function depsFor(
 describe('Chat con credentialId', () => {
   it('1. /api/chat acepta credentialId y responde con el contrato de chat', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
     const dispatch = createProviderDispatch({ gemini: async () => ({ content: 'respuesta de gemini' }) });
 
     const response = await handleChatWithStoredCredential(
@@ -58,12 +58,7 @@ describe('Chat con credentialId', () => {
 
   it('2. resuelve la credencial del propietario correcto y llega al adaptador con la clave resuelta', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({
-      ownerId: 'user-a',
-      providerId: 'gemini',
-      apiKey: SECRET,
-      model: 'gemini-2.0-flash',
-    });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const captured: ProviderDispatchInput[] = [];
     const dispatch = createProviderDispatch({
@@ -71,7 +66,11 @@ describe('Chat con credentialId', () => {
     });
 
     const response = await handleChatWithStoredCredential(
-      chatRequest({ messages: [{ role: 'user', content: 'hola' }], credentialId: metadata.credentialId }),
+      chatRequest({
+        messages: [{ role: 'user', content: 'hola' }],
+        credentialId: metadata.credentialId,
+        model: 'gemini-2.0-flash',
+      }),
       depsFor('user-a', service, dispatch),
     );
 
@@ -84,7 +83,7 @@ describe('Chat con credentialId', () => {
 
   it('3. rechaza la credencial de otro usuario con el mismo error generico', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     let called = false;
     const dispatch = createProviderDispatch({
@@ -113,7 +112,7 @@ describe('Chat con credentialId', () => {
     assert.equal(rejectClientSuppliedApiKey({ apiKey: '   ' }), null, 'clave vacia no cuenta');
 
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
     let called = false;
     const dispatch = createProviderDispatch({ gemini: async () => { called = true; return { content: 'x' }; } });
 
@@ -127,7 +126,7 @@ describe('Chat con credentialId', () => {
 
   it('5. el flujo llega al adaptador gemini cableado en el runtime', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const captured: string[] = [];
     const dispatch = createProviderDispatch({
@@ -143,7 +142,7 @@ describe('Chat con credentialId', () => {
     assert.deepEqual(captured, [SECRET]);
 
     // proveedor sin adaptador -> error explicito, sin mock
-    const groqCredential = service.save({ ownerId: 'user-a', providerId: 'groq', apiKey: 'sk-groq' });
+    const groqCredential = await service.save({ ownerId: 'user-a', providerId: 'groq', apiKey: 'sk-groq' });
     const unsupported = await handleChatWithStoredCredential(
       chatRequest({ messages: [{ role: 'user', content: 'hola' }], credentialId: groqCredential.credentialId }),
       depsFor('user-a', service, dispatch),
@@ -154,16 +153,15 @@ describe('Chat con credentialId', () => {
 
   it('6. la respuesta identifica proveedor y modelo y nunca incluye la clave', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({
-      ownerId: 'user-a',
-      providerId: 'gemini',
-      apiKey: SECRET,
-      model: 'gemini-1.5-pro',
-    });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
     const dispatch = createProviderDispatch({ gemini: async () => ({ content: 'respuesta' }) });
 
     const response = await handleChatWithStoredCredential(
-      chatRequest({ messages: [{ role: 'user', content: 'hola' }], credentialId: metadata.credentialId }),
+      chatRequest({
+        messages: [{ role: 'user', content: 'hola' }],
+        credentialId: metadata.credentialId,
+        model: 'gemini-1.5-pro',
+      }),
       depsFor('user-a', service, dispatch),
     );
 

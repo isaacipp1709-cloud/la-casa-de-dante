@@ -47,12 +47,7 @@ function depsFor(
 describe('BYOK: resolucion de credencial hasta el proveedor', () => {
   it('1. resuelve credentialId y entrega la clave solo al adaptador del proveedor', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({
-      ownerId: 'user-a',
-      providerId: 'gemini',
-      apiKey: SECRET,
-      model: 'gemini-2.0-flash',
-    });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const captured: ProviderDispatchInput[] = [];
     const dispatch = createProviderDispatch({
@@ -60,7 +55,11 @@ describe('BYOK: resolucion de credencial hasta el proveedor', () => {
     });
 
     const response = await handleChatWithCredential(
-      jsonRequest({ credentialId: metadata.credentialId, messages: [{ role: 'user', content: 'hola' }] }),
+      jsonRequest({
+        credentialId: metadata.credentialId,
+        model: 'gemini-2.0-flash',
+        messages: [{ role: 'user', content: 'hola' }],
+      }),
       depsFor('user-a', service, dispatch),
     );
 
@@ -84,7 +83,7 @@ describe('BYOK: resolucion de credencial hasta el proveedor', () => {
 
   it('2. rechaza la credencial de otro usuario sin invocar al adaptador', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     let called = false;
     const dispatch = createProviderDispatch({
@@ -103,7 +102,7 @@ describe('BYOK: resolucion de credencial hasta el proveedor', () => {
 
   it('3. rechaza un proveedor no soportado con el despachador real', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'ollama', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'ollama', apiKey: SECRET });
 
     const realDispatch = createProviderDispatch(defaultProviderAdapters);
     const response = await handleChatWithCredential(
@@ -129,7 +128,7 @@ describe('BYOK: errores del proveedor sanitizados', () => {
 
     for (const [failure, expectedStatus, expectedCode] of cases) {
       const service = new CredentialService(MASTER_SECRET);
-      const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+      const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
       const dispatch = createProviderDispatch({
         gemini: async () => { throw failure; },
       });
@@ -146,7 +145,7 @@ describe('BYOK: errores del proveedor sanitizados', () => {
 
   it('no filtra mensajes crudos del upstream (clave ni URL interna)', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const rawUpstreamError = Object.assign(
       new Error('upstream https://generativelanguage.internal/v1 failed with key ' + SECRET),
@@ -179,7 +178,7 @@ describe('BYOK: errores del proveedor sanitizados', () => {
 
   it('5. la clave no aparece en ninguna respuesta correcta', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
     const dispatch = createProviderDispatch({ gemini: async () => ({ content: 'ok' }) });
 
     const response = await handleChatWithCredential(

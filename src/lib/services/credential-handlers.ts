@@ -31,9 +31,11 @@ export interface HandlerResult {
 
 export interface CredentialHandlerDeps {
   resolveOwner: (request: Request) => Promise<OwnerResolution>;
-  createService: () => CredentialService;
+  createService: (request: Request) => CredentialService;
   /** Transporte hacia el proveedor real. Sin el, la ejecucion no es posible. */
   dispatch?: ProviderDispatch;
+  /** Modo de persistencia efectivo, para informar a la UI sin exponer detalles internos. */
+  storageMode?: () => 'durable' | 'memory';
 }
 
 function fail(status: number, code: string, message: string): HandlerResult {
@@ -110,10 +112,11 @@ async function requireOwner(
 }
 
 function requireService(
+  request: Request,
   deps: CredentialHandlerDeps,
 ): { ok: true; service: CredentialService } | { ok: false; result: HandlerResult } {
   try {
-    return { ok: true, service: deps.createService() };
+    return { ok: true, service: deps.createService(request) };
   } catch (error) {
     if (error instanceof CredentialConfigurationError) {
       return { ok: false, result: fail(500, 'CONFIGURATION_ERROR', error.message) };
@@ -171,10 +174,11 @@ export async function runWithResolvedCredential(
   dispatch: ProviderDispatch | undefined,
   credentialId: string,
   messages: Array<{ role: ProviderRole; content: string }>,
+  modelOverride?: string,
 ): Promise<{ ok: true; execution: ResolvedExecution } | { ok: false; result: HandlerResult }> {
-  let resolved: { providerId: string; model?: string; apiKey: string };
+  let resolved: { providerId: string; apiKey: string };
   try {
-    resolved = service.resolveForOwner(credentialId, ownerId);
+    resolved = await service.resolveForOwner(credentialId, ownerId);
   } catch (error) {
     // Inexistente y ajena devuelven el mismo error generico: no se filtra existencia.
     if (error instanceof CredentialNotFoundError || error instanceof CredentialIntegrityError) {
@@ -191,13 +195,13 @@ export async function runWithResolvedCredential(
   try {
     const result = await dispatch({
       providerId: resolved.providerId,
-      model: resolved.model,
+      model: modelOverride,
       apiKey: resolved.apiKey,
       messages,
     });
     return {
       ok: true,
-      execution: { content: result.content, providerId: resolved.providerId, model: resolved.model },
+      execution: { content: result.content, providerId: resolved.providerId, model: modelOverride },
     };
   } catch (error) {
     return { ok: false, result: mapProviderFailure(error) };
@@ -209,7 +213,7 @@ export async function handleSaveCredential(request: Request, deps: CredentialHan
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
 
-  const serviceResult = requireService(deps);
+  const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
   const parsed = await readJsonBody(request);
@@ -217,8 +221,6 @@ export async function handleSaveCredential(request: Request, deps: CredentialHan
 
   const providerId = typeof parsed.body.providerId === 'string' ? parsed.body.providerId : '';
   const apiKey = typeof parsed.body.apiKey === 'string' ? parsed.body.apiKey : '';
-  const model = typeof parsed.body.model === 'string' ? parsed.body.model : undefined;
-
   if (!isAllowedProvider(providerId)) {
     return fail(400, 'INVALID_REQUEST', 'providerId is not allowed.');
   }
@@ -227,7 +229,7 @@ export async function handleSaveCredential(request: Request, deps: CredentialHan
   }
 
   try {
-    const metadata = serviceResult.service.save({ ownerId: owner.ownerId, providerId, apiKey, model });
+    const metadata = await serviceResult.service.save({ ownerId: owner.ownerId, providerId, apiKey });
     return { status: 201, body: { saved: true, credential: metadata } };
   } catch (error) {
     if (error instanceof UnsupportedProviderError) {
@@ -248,10 +250,12 @@ export async function handleListCredentials(request: Request, deps: CredentialHa
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
 
-  const serviceResult = requireService(deps);
+  const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
-  return { status: 200, body: { credentials: serviceResult.service.listMetadata(owner.ownerId) } };
+  const credentials = await serviceResult.service.listMetadata(owner.ownerId);
+  const storage = deps.storageMode ? deps.storageMode() : undefined;
+  return { status: 200, body: { credentials, ...(storage ? { storage } : {}) } };
 }
 
 /**
@@ -262,7 +266,7 @@ export async function handleChatWithCredential(request: Request, deps: Credentia
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
 
-  const serviceResult = requireService(deps);
+  const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
   const parsed = await readJsonBody(request);
@@ -281,12 +285,14 @@ export async function handleChatWithCredential(request: Request, deps: Credentia
     return fail(400, 'INVALID_REQUEST', 'At least one valid message is required.');
   }
 
+  const requestedModel = typeof parsed.body.model === 'string' ? parsed.body.model : undefined;
   const run = await runWithResolvedCredential(
     owner.ownerId,
     serviceResult.service,
     deps.dispatch,
     credentialId,
     messages,
+    requestedModel,
   );
   if (!run.ok) return run.result;
 
@@ -325,7 +331,7 @@ export async function handleChatWithStoredCredentialFromBody(
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
 
-  const serviceResult = requireService(deps);
+  const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
   const clientKey = rejectClientSuppliedApiKey(body);
@@ -341,12 +347,14 @@ export async function handleChatWithStoredCredentialFromBody(
     return fail(400, 'INVALID_REQUEST', 'At least one valid message is required.');
   }
 
+  const requestedModel = typeof body.model === 'string' ? body.model : undefined;
   const run = await runWithResolvedCredential(
     owner.ownerId,
     serviceResult.service,
     deps.dispatch,
     credentialId,
     messages,
+    requestedModel,
   );
   if (!run.ok) return run.result;
 
@@ -385,7 +393,7 @@ export async function handleDeleteCredential(
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
 
-  const serviceResult = requireService(deps);
+  const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
   if (typeof credentialId !== 'string' || credentialId.trim().length === 0) {
@@ -393,7 +401,7 @@ export async function handleDeleteCredential(
   }
 
   try {
-    serviceResult.service.deleteForOwner(credentialId, owner.ownerId);
+    await serviceResult.service.deleteForOwner(credentialId, owner.ownerId);
     return { status: 200, body: { deleted: true, credentialId } };
   } catch (error) {
     if (error instanceof CredentialNotFoundError) {

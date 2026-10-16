@@ -53,9 +53,9 @@ describe('Gestion de credenciales desde la UI', () => {
 
   it('2. el listado muestra solo las credenciales del propietario autenticado', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
-    service.save({ ownerId: 'user-a', providerId: 'groq', apiKey: 'sk-other' });
-    service.save({ ownerId: 'user-b', providerId: 'gemini', apiKey: 'sk-ajena' });
+    await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    await service.save({ ownerId: 'user-a', providerId: 'groq', apiKey: 'sk-other' });
+    await service.save({ ownerId: 'user-b', providerId: 'gemini', apiKey: 'sk-ajena' });
 
     const own = await handleListCredentials(request('http://local/api/credentials'), depsFor('user-a', service));
     assert.equal(own.status, 200);
@@ -73,7 +73,7 @@ describe('Gestion de credenciales desde la UI', () => {
 
   it('3. elimina una credencial propia y borra sus datos cifrados', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const response = await handleDeleteCredential(
       request(`http://local/api/credentials/${metadata.credentialId}`, 'DELETE'),
@@ -87,14 +87,14 @@ describe('Gestion de credenciales desde la UI', () => {
     assert.ok(!JSON.stringify(response.body).includes(SECRET), 'no se devuelve la clave');
 
     // Ya no existe ni se puede resolver
-    assert.throws(() => service.resolveForOwner(metadata.credentialId, 'user-a'));
+    await assert.rejects(async () => service.resolveForOwner(metadata.credentialId, 'user-a'));
     const after = await handleListCredentials(request('http://local/api/credentials'), depsFor('user-a', service));
     assert.equal((after.body.credentials as unknown[]).length, 0);
   });
 
   it('4. rechaza el borrado de una credencial ajena con el mismo error generico', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const response = await handleDeleteCredential(
       request(`http://local/api/credentials/${metadata.credentialId}`, 'DELETE'),
@@ -108,7 +108,7 @@ describe('Gestion de credenciales desde la UI', () => {
     // Sigue existiendo para su propietario
     const stillThere = await handleListCredentials(request('http://local/api/credentials'), depsFor('user-a', service));
     assert.equal((stillThere.body.credentials as unknown[]).length, 1);
-    assert.equal(service.resolveForOwner(metadata.credentialId, 'user-a').apiKey, SECRET);
+    assert.equal((await service.resolveForOwner(metadata.credentialId, 'user-a')).apiKey, SECRET);
 
     // Inexistente -> mismo error generico
     const missing = await handleDeleteCredential(
@@ -122,7 +122,7 @@ describe('Gestion de credenciales desde la UI', () => {
 
   it('5. rechaza el borrado sin autenticacion del servidor', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
 
     const deps: CredentialHandlerDeps = {
       resolveOwner: (req) => resolveOwnerFromRequest(req, { env: {} }),
@@ -141,12 +141,12 @@ describe('Gestion de credenciales desde la UI', () => {
     assert.equal(listNoAuth.status, 401);
 
     // La credencial no se toco
-    assert.equal(service.resolveForOwner(metadata.credentialId, 'user-a').apiKey, SECRET);
+    assert.equal((await service.resolveForOwner(metadata.credentialId, 'user-a')).apiKey, SECRET);
   });
 
   it('6. rechaza una clave enviada en operaciones donde no corresponde', async () => {
     const service = new CredentialService(MASTER_SECRET);
-    const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
     const deps = depsFor('user-a', service);
 
     const listWithQueryKey = await handleListCredentials(
