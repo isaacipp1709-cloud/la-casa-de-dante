@@ -80,6 +80,24 @@ export function composeConnectionsPanel(input: ComposeConnectionsInput): Connect
       : "Falta la configuracion de Supabase en el servidor.",
   });
 
+  const storage = input.core?.storage ?? 'temporary';
+  const hasByok = Object.keys(byokCounts).length > 0;
+
+  connections.push({
+    id: 'credentials.byok',
+    name: 'Credenciales BYOK (Dante-AI-Core)',
+    type: 'integration',
+    owner: 'system',
+    canToggle: false,
+    credentialSource: hasByok ? 'byok' : 'none',
+    byokAvailable: hasByok,
+    status: storage === 'durable' ? 'active' : 'incomplete',
+    detail:
+      storage === 'durable'
+        ? 'Persistencia durable activa: el Core cifra y guarda en su base.'
+        : 'Persistencia temporal: los datos se pierden al reiniciar.',
+  });
+
   for (const connection of input.core?.connections ?? []) {
     // Lista blanca: solo se copian campos del contrato.
     connections.push(
