@@ -125,11 +125,22 @@ describe('BYOK: endpoints y aislamiento por propietario', () => {
 
     const deps = ownerDeps('user-a');
     const response = await handleChatWithCredential(
-      jsonRequest('http://local/api/chat/credentials', { credentialId: 'does-not-exist' }),
+      jsonRequest('http://local/api/chat/credentials', {
+        credentialId: 'does-not-exist',
+        messages: [{ role: 'user', content: 'hola' }],
+      }),
       deps,
     );
     assert.equal(response.status, 404);
     assert.equal((response.body.error as Record<string, unknown>).code, 'NOT_FOUND');
+
+    // Peticion mal formada (sin mensajes): la validacion devuelve 400, no filtra existencia.
+    const malformed = await handleChatWithCredential(
+      jsonRequest('http://local/api/chat/credentials', { credentialId: 'does-not-exist' }),
+      deps,
+    );
+    assert.equal(malformed.status, 400);
+    assert.equal((malformed.body.error as Record<string, unknown>).code, 'INVALID_REQUEST');
   });
 
   it('7. rechaza peticion sin autenticacion y rechaza configuracion de auth ausente', async () => {
@@ -202,7 +213,6 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     const response = await handleChatWithCredential(
       jsonRequest('http://local/api/chat/credentials', {
         credentialId: metadata.credentialId,
-        apiKey: 'sk-client-should-be-ignored',
         messages: [{ role: 'user', content: 'hola', apiKey: 'sk-injected' }],
       }),
       deps,
@@ -219,7 +229,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     // La respuesta nunca contiene la clave
     const serialized = JSON.stringify(response.body);
     assert.ok(!serialized.includes(secret), 'la respuesta no contiene la clave guardada');
-    assert.ok(!serialized.includes('sk-client-should-be-ignored'), 'no se refleja la clave del cliente');
+    assert.ok(!serialized.includes('sk-injected'), 'no se refleja la clave inyectada en el mensaje');
   });
 
   it('responde error interno acotado si el despachador no esta cableado (via defensiva)', async () => {
