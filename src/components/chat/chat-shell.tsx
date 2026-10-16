@@ -15,13 +15,11 @@ type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
   providerId?: string;
+  model?: string;
   correlationId?: string;
   timestamp?: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number; };
+};;
 };
 
 type SessionThread = {
@@ -30,6 +28,9 @@ type SessionThread = {
   updatedAt: string;
   messages: Message[];
 };
+
+const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
 const QUICK_PROMPTS = [
   "Analiza el estado actual de las 37 neuronas de Von Neumann",
@@ -129,8 +130,13 @@ export function ChatShell() {
   };
 
   const handleSend = async (content: string) => {
+    // Get currently selected provider/model
+    const effectiveProvider = selectedProvider;
+    const effectiveModel = selectedModel;
     const nowIso = new Date().toISOString();
     const userMessage: Message = {
+      providerId: effectiveProvider,
+      model: effectiveModel,
       id: crypto.randomUUID(),
       role: 'user',
       content,
@@ -152,7 +158,9 @@ export function ChatShell() {
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content })) as DanteChatRequest['messages'];
 
-      const requestPayload: DanteChatRequest = {
+      const requestPayload: DanteChatRequest = {\n      providerId: effectiveProvider,\n      model: effectiveModel,\n
+      providerId: effectiveProvider,
+      model: effectiveModel,
         sessionId: currentSession.id,
         conversationId: currentSession.id,
         messages: [...history, { role: 'user', content }],
@@ -310,7 +318,7 @@ export function ChatShell() {
 
       <div className="w-full border-t border-zinc-900 bg-zinc-950/80 backdrop-blur">
         <div className="max-w-4xl mx-auto">
-          <ChatComposer onSend={handleSend} disabled={isTyping} />
+          <ChatComposer onSend={handleSend} disabled={isTyping} selectedProvider={selectedProvider} selectedModel={selectedModel} />
         </div>
       </div>
     </div>

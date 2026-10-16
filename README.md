@@ -1,36 +1,47 @@
 # La Casa de Dante
 
 
-## Gestión de Proveedores y Modelos de IA
+## Gestión de Proveedores y Modelos de IA (PLANIFICADO - Incremento Funcional en Rama feature/providers-ia)
 
-### 🎯 Objectivo
-Gestionar proveedores de IA (Groq, Google Gemini) desde la interfaz web: agregar API keys, probar conexiones, seleccionar modelos y conversar.
+### Características Implementadas (Este Incremento)
+- Selector UI: Dropdowns de proveedor/modelo en ChatComposer
+- Propagación: Selección enviada desde UI -> API -> Bridge -> Orquestador -> Proveedor
+- Validación: Esquemas actualizados en contracts/dante.ts para aceptar providerId/model
+- Identificación: Mensajes de assistant incluyen providerId y model utilizados
+- Rechazo Claro: Si backend no puede usar selección, devuelve error (no cambia silenciosamente)
+- Mock Identificado: Respuestas de fallback marcadas explícitamente como [Fallback Mock]
 
-### 🛠 Características Implementadas
-- **Gestión de Credenciales**: Agregar y editar API keys de proveedores
-- **Validación de Conexión**: Verificar conectividad real con cada proveedor
-- **Selección de Modelo**: Elegir modelos específicos para cada proveedor
-- **Chat con IA**: Conversar con el modelo seleccionado en tiempo real
-- **Persistencia Segura**: Credenciales almacenadas en Supabase (o similar) no en código
-- **Verificación de Estado**: Monitorear disponibilidad de cada proveedor
+### Limitaciones de Este Incremento
+- Sin Persistencia: Las selecciones NO se guardan entre recargas (requiere autenticación)
+- Sin Credenciales Reales: API keys NO se solicitan ni almacenan (BYOK pendiente autorización)
+- Sin Validación de Proveedor Disponible: El backend intenta la selección; si falla, usa fallback mock o devuelve error según disponibilidad real
+- Sin Lista Dinámica: Selector usa datos mock; futuro: consumir /api/providers para lista real
 
-### 📁 Rutas Principales de la API
-- `GET /api/providers` – Listar todos los proveedores configurados
-- `POST /api/providers` – Agregar nuevo proveedor con API key
-- `GET /api/connections` – Obtener estado de todas las conexiones
-- `POST /api/connections` – Ingerir documentos
-- `POST /api/chat` – Enviar mensajes al modelo seleccionado
+### Cambios en el Código
+- src/components/chat/provider-selector.tsx (nuevo)
+- src/components/chat/chat-composer.tsx (modificado)
+- src/components/chat/chat-shell.tsx (modificado)
+- src/contracts/dante.ts (actualizado)
+- tests/provider-selection.test.ts (nuevo - verifica propagación)
 
-### 🔐 Seguridad y Aprobación
-Los tokens API se almacenan en Supabase con políticas de seguridad; nunca en código, logs o memoria persistente.
+### Pruebas del Incremento
+- La selección llega desde la petición hasta el ejecutor
+- Se rechaza una combinación proveedor/modelo no soportada (por falta de credenciales)
+- La respuesta identifica el proveedor y modelo efectivamente usados
+- Una simulación no se muestra como un LLM real (prefijo [Fallback Mock] claro)
+- NOTA: Estas pruebas usan proveedores falsos/mock en entorno controlado
+- NOTA: No verifican llamadas reales a APIs externas (requieren credenciales y autorización específica)
 
-### 🚀 Próximos Pasos
-1. Iniciar backend: `pnpm dev`
-2. Abrir http://localhost:3000
-3. Navegar a /connections para comenzar.
+### Seguridad y Modo Degradado
+- Nunca se envía credencial de un proveedor a otro (aislamiento por selection)
+- Modo degradado explícito: Respuestas de fallback claramente identificadas, nunca presentadas como LLM real
+- Errores claros: Ante falta de credenciales, se devuelve estado explícito, no se simula éxito
 
-
-**La Casa de Dante** es la interfaz moderna, centro de mando, sistema de telemetría y memoria periférica del ecosistema cognitivo **JARVIS**. Actúa como el hogar y los sentidos periféricos de [Dante-AI-Core](https://github.com/isaacipp1709-cloud/Dante-AI-Core), el cual es el cerebro puro y determinista basado en la arquitectura de 37 neuronas de von Neumann.
+### Próximos Pasos (Tras Este Incremento)
+1. Probar build local y tipos: pnpm run build && pnpm run test
+2. Solucionar permisos de GitHub (403) para publicar rama
+3. Abrir Pull Request hacia main con cambios funcionales
+4. Continuar con incremento BYOK (requiere resolución de identidad/autenticación)
 
 ## Identidad y Relación con el Cerebro
 - **Dante-AI-Core:** Cerebro puro, sin dependencias externas directas ni gestión de I/O de usuario.

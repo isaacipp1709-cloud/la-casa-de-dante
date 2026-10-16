@@ -4,6 +4,8 @@ export const DanteMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   content: z.string().min(1),
   timestamp: z.string().datetime().optional(),
+  providerId: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export const DanteChatMessageSchema = DanteMessageSchema;
@@ -19,6 +21,8 @@ export const DanteChatRequestSchema = z.object({
     capabilities: z.array(z.string()).optional(),
     constraints: z.array(z.string()).optional(),
   }).optional(),
+  providerId: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export const DanteChatResponseSchema = z.object({
@@ -26,6 +30,7 @@ export const DanteChatResponseSchema = z.object({
   status: z.enum(["success", "error"]),
   correlationId: z.string(),
   providerId: z.string().optional(),
+  model: z.string().optional(),
   usage: z.object({
     promptTokens: z.number().int().nonnegative(),
     completionTokens: z.number().int().nonnegative(),
