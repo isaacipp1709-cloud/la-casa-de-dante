@@ -91,9 +91,9 @@ describe('Acceso con GitHub sin permisos de repositorio', () => {
     assert.equal(options.options.redirectTo, 'https://casa.example/auth/callback');
   });
 
-  it('funciona sin redirect explicito', () => {
-    const options = buildGitHubOAuthOptions();
+  it('exige destino explicito y lo propaga', () => {
+    const options = buildGitHubOAuthOptions('https://casa.example/auth/callback');
     assert.equal(options.options.scopes, '');
-    assert.equal('redirectTo' in options.options, false);
+    assert.equal(options.options.redirectTo, 'https://casa.example/auth/callback');
   });
 });
