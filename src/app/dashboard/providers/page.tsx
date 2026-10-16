@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { CredentialManager } from "@/components/credentials/credential-manager";
 
 interface Provider {
   id: string;
@@ -177,9 +178,12 @@ export default function ProvidersPanel() {
           </button>
         </form>
         <p className="mt-3 text-[11px] text-zinc-600 font-mono">
-          Las API keys se configuran exclusivamente en las variables de entorno del servidor. No se almacenan aquí.
+          Las API keys de proveedor pueden guardarse cifradas con el gestor de credenciales de abajo;
+          nunca se muestran ni se guardan en el navegador.
         </p>
       </div>
+
+      <CredentialManager />
     </div>
   );
 }
