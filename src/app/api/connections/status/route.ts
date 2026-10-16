@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { danteBridge } from "@/lib/dante-bridge";
-import { readServerAuthConfig, resolveOwnerFromRequest } from "@/lib/auth/server-owner";
+import { readServerAuthConfig } from "@/lib/auth/server-owner";
+import { requireAuthorizedOwner } from "@/lib/auth/require-owner";
 import { createCredentialService } from "@/lib/services/credential-runtime";
 import { composeConnectionsPanel } from "@/lib/connections/connection-panel";
 import type { ConnectionsStatusResponse } from "@/contracts/connections";
@@ -22,7 +23,7 @@ function tally(credentials: Array<{ providerId: string }>): Record<string, numbe
  */
 async function countByokByProvider(request: NextRequest): Promise<Record<string, number>> {
   try {
-    const owner = await resolveOwnerFromRequest(request);
+    const owner = await requireAuthorizedOwner(request);
     if (!owner.ok) return {};
 
     try {

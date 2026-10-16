@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import React, { useCallback, useEffect, useState } from "react";
 import { KeyRound, Trash2, Plus, ShieldCheck } from "lucide-react";
 import { BYOK_PROVIDERS, providerLabel } from "@/lib/credentials/provider-catalog";
@@ -94,7 +95,7 @@ export function CredentialManager() {
     setListError(null);
     setUnauthenticated(false);
     try {
-      const response = await fetch("/api/credentials", { cache: "no-store" });
+      const response = await authorizedFetch("/api/credentials", { cache: "no-store" });
       if (response.status === 401) {
         setUnauthenticated(true);
         setCredentials([]);
@@ -129,7 +130,7 @@ export function CredentialManager() {
     setSaving(true);
     setStatus(null);
     try {
-      const response = await fetch("/api/credentials", {
+      const response = await authorizedFetch("/api/credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ providerId, apiKey: trimmed }),
@@ -178,7 +179,7 @@ export function CredentialManager() {
     setDeletingId(credentialId);
     setStatus(null);
     try {
-      const response = await fetch(`/api/credentials/${encodeURIComponent(credentialId)}`, {
+      const response = await authorizedFetch(`/api/credentials/${encodeURIComponent(credentialId)}`, {
         method: "DELETE",
       });
 

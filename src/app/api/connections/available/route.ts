@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { danteBridge } from "@/lib/dante-bridge";
-import { resolveOwnerFromRequest } from "@/lib/auth/server-owner";
+import { requireAuthorizedOwner } from "@/lib/auth/require-owner";
 import { AgentConnectionsResponseSchema } from "@/contracts/connections";
 import { bridgeErrorMessage } from "@/lib/connections/connection-panel";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * Sin claves, tokens, URLs internas ni detalles de configuracion.
  */
 export async function GET(request: NextRequest) {
-  const owner = await resolveOwnerFromRequest(request);
+  const owner = await requireAuthorizedOwner(request);
   if (!owner.ok) {
     return NextResponse.json(
       { error: { code: owner.code, message: owner.message } },

@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from './chat-message';
 import { ChatComposer } from './chat-composer';
@@ -190,7 +191,7 @@ export function ChatShell() {
         messages: [...history, { role: 'user', content }],
       };
 
-      const res = await fetch('/api/chat', {
+      const res = await authorizedFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestPayload),

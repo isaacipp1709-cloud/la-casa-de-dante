@@ -1,5 +1,6 @@
 import { danteBridge } from '../dante-bridge';
-import { readBearerToken, resolveOwnerFromRequest } from '../auth/server-owner';
+import { readBearerToken } from '../auth/server-owner';
+import { requireAuthorizedOwner } from '../auth/require-owner';
 import { CredentialService } from './credential-service';
 import { InMemoryCredentialStore } from '../credentials/credential-store';
 import { createProviderDispatch } from './provider-dispatch';
@@ -41,7 +42,7 @@ const corePort: CoreCredentialPort = {
 const dispatch = createProviderDispatch(defaultProviderAdapters);
 
 export const credentialHandlerDeps: CredentialHandlerDeps = {
-  resolveOwner: (request) => resolveOwnerFromRequest(request),
+  resolveOwner: (request) => requireAuthorizedOwner(request),
   createService: createCredentialService,
   dispatch,
   storageMode: () => 'temporary',

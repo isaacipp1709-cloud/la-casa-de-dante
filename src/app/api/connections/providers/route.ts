@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { danteBridge } from "@/lib/dante-bridge";
-import { resolveOwnerFromRequest } from "@/lib/auth/server-owner";
+import { requireAuthorizedOwner } from "@/lib/auth/require-owner";
 import { ProviderToggleRequestSchema } from "@/contracts/connections";
 import { bridgeErrorMessage, composeConnectionsPanel } from "@/lib/connections/connection-panel";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * Desactivar NO elimina la credencial: solo impide su uso.
  */
 export async function POST(request: NextRequest) {
-  const owner = await resolveOwnerFromRequest(request);
+  const owner = await requireAuthorizedOwner(request);
   if (!owner.ok) {
     return NextResponse.json(
       { error: { code: owner.code, message: owner.message } },

@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Boxes, KeyRound, Plug, RefreshCw, ShieldCheck } from "lucide-react";
@@ -49,7 +50,7 @@ export function ConnectionsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/connections/status", { cache: "no-store" });
+      const response = await authorizedFetch("/api/connections/status", { cache: "no-store" });
       if (!response.ok) {
         setError("No fue posible consultar el estado de conexiones.");
         return;
@@ -74,7 +75,7 @@ export function ConnectionsPanel() {
     setBusyId(connection.id);
     setFeedback(null);
     try {
-      const response = await fetch("/api/connections/providers", {
+      const response = await authorizedFetch("/api/connections/providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ providerId, enabled }),
