@@ -22,6 +22,7 @@ export const DanteChatRequestSchema = z.object({
     constraints: z.array(z.string()).optional(),
   }).optional(),
   providerId: z.string().optional(),
+  credentialId?: z.string().optional(), // BYOK: reference, never the key
   model: z.string().optional(),
 });
 
