@@ -15,6 +15,7 @@ interface ChatMessageProps {
   role: Role;
   content: string;
   providerId?: string;
+  model?: string;
   correlationId?: string;
   usage?: TokenUsage;
   timestamp?: string;
@@ -24,6 +25,7 @@ export function ChatMessage({
   role,
   content,
   providerId,
+  model,
   correlationId,
   usage,
   timestamp,
@@ -119,12 +121,18 @@ export function ChatMessage({
           <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-200">
             {content}
           </div>
-          {!isUser && (providerId || correlationId || usage) && (
+          {!isUser && (providerId || model || correlationId || usage) && (
             <div className="mt-3 pt-2.5 border-t border-zinc-800/60 flex flex-wrap items-center gap-2">
               {providerId && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-zinc-950 px-2 py-0.5 rounded-full border border-emerald-900/50">
                   <Cpu className="w-3 h-3" />
                   <span>Provider: {providerId}</span>
+                </span>
+              )}
+              {model && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-300 bg-zinc-950 px-2 py-0.5 rounded-full border border-emerald-900/30">
+                  <Cpu className="w-3 h-3" />
+                  <span>Modelo: {model}</span>
                 </span>
               )}
               {usage && (

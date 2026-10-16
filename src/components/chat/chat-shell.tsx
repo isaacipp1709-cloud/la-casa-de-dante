@@ -70,9 +70,31 @@ const INITIAL_SESSIONS: SessionThread[] = [
   },
 ];
 
-const getSafeErrorMessage = (status: number) => {
+const CHAT_ERROR_MESSAGES: Record<string, string> = {
+  NOT_FOUND:
+    "No tienes una clave guardada que coincida con este proveedor. Guardala y vuelve a intentarlo.",
+  UNAUTHORIZED: "Tu sesion no esta autenticada. Inicia sesion para usar una clave guardada.",
+  PROVIDER_NOT_SUPPORTED: "El proveedor seleccionado todavia no esta habilitado.",
+  PROVIDER_UNAUTHORIZED: "El proveedor rechazo la clave guardada. Verificala o guardala de nuevo.",
+  PROVIDER_RATE_LIMITED: "Se alcanzo el limite de uso del proveedor. Intentalo mas tarde.",
+  PROVIDER_TIMEOUT: "El proveedor tardo demasiado en responder.",
+  PROVIDER_NETWORK_ERROR: "No se pudo conectar con el proveedor.",
+  PROVIDER_ERROR: "El proveedor devolvio un error. Intentalo nuevamente.",
+  CONFIGURATION_ERROR: "Falta configuracion en el servidor para usar credenciales.",
+  INVALID_REQUEST: "La solicitud no es valida. Revisa el contenido e intentalo de nuevo.",
+};
+
+const getSafeErrorMessage = (status: number, code?: string) => {
+  if (code && CHAT_ERROR_MESSAGES[code]) {
+    return CHAT_ERROR_MESSAGES[code];
+  }
+
   if (status === 400) {
     return "No se pudo procesar el mensaje. Revisa el contenido e inténtalo nuevamente.";
+  }
+
+  if (status === 401) {
+    return "Tu sesion no esta autenticada. Inicia sesion para usar una clave guardada.";
   }
 
   return "Dante no pudo responder en este momento. inténtalo nuevamente.";
@@ -129,6 +151,7 @@ export function ChatShell() {
     content: string,
     providerOverride?: string,
     modelOverride?: string,
+    credentialOverride?: string,
   ) => {
     // La seleccion llega desde el composer (ProviderSelector) en cada envio.
     const effectiveProvider = providerOverride;
@@ -161,6 +184,7 @@ export function ChatShell() {
       const requestPayload: DanteChatRequest = {
         providerId: effectiveProvider,
         model: effectiveModel,
+        credentialId: credentialOverride,
         sessionId: currentSession.id,
         conversationId: currentSession.id,
         messages: [...history, { role: 'user', content }],
@@ -173,7 +197,14 @@ export function ChatShell() {
       });
 
       if (!res.ok) {
-        throw new Error(getSafeErrorMessage(res.status));
+        let errorCode: string | undefined;
+        try {
+          const errorBody = (await res.json()) as { error?: { code?: string } };
+          errorCode = errorBody?.error?.code;
+        } catch {
+          // Cuerpo no legible: se usa el mensaje generico por estado.
+        }
+        throw new Error(getSafeErrorMessage(res.status, errorCode));
       }
 
       const data = (await res.json()) as DanteChatResponse;
@@ -187,6 +218,7 @@ export function ChatShell() {
         role: 'assistant',
         content: data.message.content,
         providerId: data.providerId,
+        model: data.model,
         correlationId: data.correlationId,
         timestamp: data.message.timestamp || new Date().toISOString(),
         usage: data.usage,
@@ -214,8 +246,13 @@ export function ChatShell() {
     await submitMessage(content);
   };
 
-  const handleComposerSend = (message: { content: string; providerId?: string; model?: string }) => {
-    void submitMessage(message.content, message.providerId, message.model);
+  const handleComposerSend = (message: {
+    content: string;
+    providerId?: string;
+    model?: string;
+    credentialId?: string;
+  }) => {
+    void submitMessage(message.content, message.providerId, message.model, message.credentialId);
   };
 
   return (
@@ -309,6 +346,7 @@ export function ChatShell() {
               role={msg.role}
               content={msg.content}
               providerId={msg.providerId}
+              model={msg.model}
               correlationId={msg.correlationId}
               timestamp={msg.timestamp}
               usage={msg.usage}

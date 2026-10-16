@@ -3,9 +3,15 @@
 import React, { KeyboardEvent, useRef, useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { ProviderSelector } from "./provider-selector";
+import { CredentialSelector } from "./credential-selector";
 
 interface ChatComposerProps {
-  onSend: (message: { content: string; providerId?: string; model?: string }) => void;
+  onSend: (message: {
+    content: string;
+    providerId?: string;
+    model?: string;
+    credentialId?: string;
+  }) => void;
   disabled?: boolean;
 }
 
@@ -13,6 +19,7 @@ export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
   const [input, setInput] = useState('');
   const [providerId, setProviderId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [credentialId, setCredentialId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (!disabled && textareaRef.current) textareaRef.current.focus(); }, [disabled]);
@@ -20,10 +27,15 @@ export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
   const handleSend = () => {
     const trimmed = input.trim();
     if (trimmed && !disabled) {
-      onSend({ content: trimmed, providerId: providerId || undefined, model: model || undefined });
+      // Se envia solo la referencia: la clave nunca sale del servidor.
+      onSend({
+        content: trimmed,
+        providerId: providerId || undefined,
+        model: model || undefined,
+        credentialId: credentialId || undefined,
+      });
       setInput('');
-      setProviderId(null);
-      setModel(null);
+      // La seleccion se conserva para los siguientes mensajes de la conversacion.
     }
   };
 
@@ -34,7 +46,17 @@ export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
 
   return (
     <div className="flex flex-col w-full">
-      <ProviderSelector onProviderChange={(p, m) => { setProviderId(p); setModel(m); }} disabled={disabled} />
+      <div className="flex flex-col sm:flex-row sm:items-end sm:gap-3 w-full">
+        <ProviderSelector
+          onProviderChange={(p, m) => { setProviderId(p); setModel(m); setCredentialId(null); }}
+          disabled={disabled}
+        />
+        <CredentialSelector
+          providerId={providerId}
+          onCredentialChange={setCredentialId}
+          disabled={disabled}
+        />
+      </div>
       <div className="flex gap-3 items-end p-4 sm:p-6">
         <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKeyDown}
           placeholder="Ingresar comando o consulta..." disabled={disabled} rows={1}

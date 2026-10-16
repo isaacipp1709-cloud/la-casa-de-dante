@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { DanteChatRequestSchema, DanteChatResponseSchema } from "@/contracts/dante";
 import { danteBridge } from "@/lib/dante-bridge";
 import { DanteBridgeError } from "@/lib/dante-bridge/errors";
+import {
+  handleChatWithStoredCredentialFromBody,
+  rejectClientSuppliedApiKey,
+} from "@/lib/services/credential-handlers";
+import { credentialHandlerDeps } from "@/lib/services/credential-runtime";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    let body;
+    let body: unknown;
     try {
       body = await request.json();
     } catch {
@@ -13,6 +20,15 @@ export async function POST(request: NextRequest) {
         { error: { code: "INVALID_REQUEST", message: "Payload JSON malformado." } },
         { status: 400 }
       );
+    }
+
+    const rawBody: Record<string, unknown> =
+      typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+
+    // La clave nunca se acepta desde el navegador: solo credentialId.
+    const clientKey = rejectClientSuppliedApiKey(rawBody);
+    if (clientKey) {
+      return NextResponse.json(clientKey.body, { status: clientKey.status });
     }
 
     const parsedRequest = DanteChatRequestSchema.safeParse(body);
@@ -23,6 +39,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Con credentialId: resolucion segura (auth -> propietario -> descifrado -> adaptador).
+    if (parsedRequest.data.credentialId) {
+      const byok = await handleChatWithStoredCredentialFromBody(request, rawBody, credentialHandlerDeps);
+      return NextResponse.json(byok.body, { status: byok.status });
+    }
+
+    // Sin credentialId: se mantiene el flujo existente via dante-bridge.
     const bridgeResponse = await danteBridge.chat(parsedRequest.data);
 
     const parsedResponse = DanteChatResponseSchema.safeParse(bridgeResponse);
