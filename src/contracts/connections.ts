@@ -110,6 +110,7 @@ export const CredentialCreateResponseSchema = z.object({
 export const CredentialDeleteResponseSchema = z.object({
   deleted: z.literal(true),
   credentialId: z.string().min(1),
+  storage: CredentialStorageSchema.optional(),
 });
 
 export type CredentialMetadata = z.infer<typeof CredentialMetadataSchema>;

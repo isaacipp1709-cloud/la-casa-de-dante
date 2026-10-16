@@ -579,7 +579,10 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
     );
     const parsed = CredentialDeleteResponseSchema.safeParse(data);
     if (!parsed.success) throw new ValidationError(parsed.error.format());
-    return { storage: 'durable' as CredentialStorage, credentialId: parsed.data.credentialId };
+    return {
+      storage: parsed.data.storage ?? ('temporary' as CredentialStorage),
+      credentialId: parsed.data.credentialId,
+    };
   }
 
   /** Ejecuta el chat con la credencial resuelta en el Core (nunca aqui). */
