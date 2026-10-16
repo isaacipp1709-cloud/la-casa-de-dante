@@ -158,3 +158,42 @@ export async function fetchFromDanteCore(
     throw error;
   }
 }
+
+/**
+ * POST autenticado al Core (mismo token del bridge).
+ * Lanza 'TIMEOUT' en abort y 'CORE_HTTP_<status>' en respuesta no exitosa.
+ */
+export async function postToDanteCore(
+  endpointPath: string,
+  body: unknown,
+  timeoutMs: number = 8_000
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${DANTE_CORE_URL}${endpointPath}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`CORE_HTTP_${res.status}`);
+    }
+
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw error;
+  }
+}

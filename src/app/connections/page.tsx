@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Signal, Wifi, WifiOff, FileText, ShieldCheck, Upload } from "lucide-react";
+import { ConnectionsPanel } from "@/components/connections/connections-panel";
 
 type ConnectionStatus = "online" | "unstable" | "offline";
 
@@ -128,6 +129,9 @@ export default function ConnectionsPage() {
           <span>Cabeceras de seguridad HTTP activas · Deny-by-default</span>
         </p>
       </div>
+
+      {/* Panel central de conexiones del sistema */}
+      <ConnectionsPanel />
 
       {/* Conexiones activas */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">

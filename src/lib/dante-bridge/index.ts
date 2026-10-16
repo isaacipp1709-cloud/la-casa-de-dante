@@ -20,13 +20,21 @@ import {
   DanteConnectionsResponseSchema,
   DanteHealthResponseSchema,
 } from "@/contracts/dante";
+import type {
+  ConnectionsStatusResponse,
+  AgentConnectionsResponse,
+} from "@/contracts/connections";
+import {
+  ConnectionsStatusResponseSchema,
+  AgentConnectionsResponseSchema,
+} from "@/contracts/connections";
 import type { BridgeStatus, DanteBridgeState } from "@/contracts/dante";
 import { MockDanteProvider } from "./mock-provider";
 import { ValidationError } from "./errors";
 import {
   chatWithDanteWithRetry,
   checkDanteHealth,
-  fetchFromDanteCore,
+  fetchFromDanteCore,  postToDanteCore,
 } from "./client";
 import {
   AuditLogPort,
@@ -52,6 +60,9 @@ export interface DanteBridge {
   getConnections(): Promise<DanteConnectionsResponse>;
   getIngestedDocuments(): Promise<DanteDocumentIngestionResponse>;
   ingestDocument(payload: unknown): Promise<DanteDocumentIngestionResponse>;
+  getConnectionsStatus(): Promise<ConnectionsStatusResponse>;
+  toggleProviderConnection(providerId: string, enabled: boolean): Promise<ConnectionsStatusResponse>;
+  getAvailableConnections(): Promise<AgentConnectionsResponse>;
 }
 
 export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
@@ -463,6 +474,60 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
       throw error;
     }
   }
+  /** Estado real de conexiones reportado por el Core (o el mock local). */
+  async getConnectionsStatus(): Promise<ConnectionsStatusResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await fetchFromDanteCore('/api/connections/status');
+        const parsed = ConnectionsStatusResponseSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        this.setStatus('DEGRADED', error instanceof Error ? error.message : 'UNKNOWN');
+      }
+    }
+    return this.provider.getConnectionsStatus();
+  }
+
+  /** Activa o desactiva un proveedor. No elimina credenciales. */
+  async toggleProviderConnection(
+    providerId: string,
+    enabled: boolean,
+  ): Promise<ConnectionsStatusResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await postToDanteCore('/api/connections/providers/toggle', { providerId, enabled });
+        const parsed = ConnectionsStatusResponseSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        this.setStatus('DEGRADED', error instanceof Error ? error.message : 'UNKNOWN');
+      }
+    }
+    return this.provider.toggleProviderConnection(providerId, enabled);
+  }
+
+  /** Subconjunto seguro para agentes: solo conexiones activas. */
+  async getAvailableConnections(): Promise<AgentConnectionsResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const data = await fetchFromDanteCore('/api/connections/available');
+        const parsed = AgentConnectionsResponseSchema.safeParse(data);
+        if (parsed.success) {
+          this.setStatus('CONNECTED');
+          return parsed.data;
+        }
+      } catch (error) {
+        this.setStatus('DEGRADED', error instanceof Error ? error.message : 'UNKNOWN');
+      }
+    }
+    return this.provider.getAvailableConnections();
+  }
+
 }
 
 // Singleton para uso directo

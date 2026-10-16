@@ -24,6 +24,11 @@ import {
   DanteDocumentIngestionResponseSchema,
 } from "@/contracts/dante";
 import { ValidationError } from "./errors";
+import type {
+  ConnectionsStatusResponse,
+  AgentConnectionsResponse,
+} from "@/contracts/connections";
+import { buildMockCoreConnections } from "@/lib/connections/mock-connections";
 
 export class MockDanteProvider {
   private providers: DanteProvidersResponse = [
@@ -570,4 +575,43 @@ export class MockDanteProvider {
 
     return this.getIngestedDocuments();
   }
+  private readonly connectionToggles = new Map<string, boolean>();
+
+  /** Estado sintetico de conexiones en modo mock (temporal, sin Core real). */
+  getConnectionsStatus(): ConnectionsStatusResponse {
+    const disabled: string[] = [];
+    this.connectionToggles.forEach((enabled, id) => {
+      if (!enabled) disabled.push(id);
+    });
+    return buildMockCoreConnections({ disabled });
+  }
+
+  /** Activa o desactiva un proveedor en modo mock. No toca credenciales. */
+  toggleProviderConnection(providerId: string, enabled: boolean): ConnectionsStatusResponse {
+    const status = this.getConnectionsStatus();
+    const connection = status.connections.find((item) => item.id === `ai.${providerId}`);
+    if (!connection || !connection.canToggle) {
+      throw new ValidationError({ providerId: ['Proveedor no disponible'] });
+    }
+    this.connectionToggles.set(providerId, enabled);
+    return this.getConnectionsStatus();
+  }
+
+  /** Solo conexiones activas y seguras para agentes. */
+  getAvailableConnections(): AgentConnectionsResponse {
+    const status = this.getConnectionsStatus();
+    return {
+      generatedAt: status.generatedAt,
+      connections: status.connections
+        .filter((connection) => connection.status === 'active')
+        .map((connection) => ({
+          id: connection.id,
+          name: connection.name,
+          type: connection.type,
+          owner: connection.owner,
+          status: 'active' as const,
+        })),
+    };
+  }
+
 }
