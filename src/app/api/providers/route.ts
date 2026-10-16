@@ -9,43 +9,29 @@ import { ValidationError } from "@/lib/dante-bridge/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    try {
-      const providers = await danteBridge.getProviders();
-      
-      // Enhance providers with model information
-      const providersWithModels = providers.map(provider => {
-        // Define models based on provider ID
-        const modelMap = {
-          'gemini': ['gemini-2.0-flash', 'gemini-1.5-pro'],
-          'groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
-          'ollama': ['llama3', 'mistral', 'phi3'],
-          'mock': ['mock-dante'],
-          'huggingface': ['mistralai/Mistral-7B-Instruct-v0.2']
-        };
-        
-        return {
-          ...provider,
-          models: modelMap[provider.id] || [],
-          // Keep existing fields: id, name, category, is_active, usageToday, dailyLimit, is_public
-        };
-      });
-      
-      const parsed = DanteProvidersResponseSchema.safeParse(providersWithModels);
+  try {
+    const providers = await danteBridge.getProviders();
 
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: { code: "INTERNAL_ERROR", message: "Respuesta de proveedores inválida." } },
-          { status: 500 }
-        );
-      }
+    const providersWithModels = providers.map((provider) => {
+      const modelMap: Record<string, string[]> = {
+        'gemini': ['gemini-2.0-flash', 'gemini-1.5-pro'],
+        'groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
+        'ollama': ['llama3', 'mistral', 'phi3'],
+        'mock': ['mock-dante'],
+        'huggingface': ['mistralai/Mistral-7B-Instruct-v0.2']
+      };
+      const declared = Array.isArray(provider.models) ? provider.models : [];
+      return { ...provider, models: declared.length > 0 ? declared : modelMap[provider.id] || [] };
+    });
 
-      return NextResponse.json(parsed.data, { status: 200 });
-    } catch {
+    const parsed = DanteProvidersResponseSchema.safeParse(providersWithModels);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: { code: "INTERNAL_ERROR", message: "No fue posible obtener los proveedores." } },
+        { error: { code: "INTERNAL_ERROR", message: "Respuesta de proveedores invalida." } },
         { status: 500 }
       );
     }
+    return NextResponse.json(parsed.data, { status: 200 });
   } catch {
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "No fue posible obtener los proveedores." } },
@@ -60,19 +46,17 @@ export async function POST(request: NextRequest) {
     rawBody = await request.json();
   } catch {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Payload JSON inválido." } },
+      { error: { code: "INVALID_REQUEST", message: "Payload JSON invalido." } },
       { status: 400 }
     );
   }
-
   const parsedInput = DanteProviderCreateRequestSchema.safeParse(rawBody);
   if (!parsedInput.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Datos de proveedor inválidos." } },
+      { error: { code: "INVALID_REQUEST", message: "Datos de proveedor invalidos." } },
       { status: 400 }
     );
   }
-
   try {
     const updated = await danteBridge.addProvider(parsedInput.data);
     const parsedOutput = DanteProvidersResponseSchema.safeParse(updated);
@@ -86,7 +70,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof ValidationError) {
       return NextResponse.json(
-        { error: { code: "INVALID_REQUEST", message: "Datos de proveedor inválidos." } },
+        { error: { code: "INVALID_REQUEST", message: "Datos de proveedor invalidos." } },
         { status: 400 }
       );
     }
@@ -101,11 +85,10 @@ export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")?.trim();
   if (!id) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Parámetro id requerido." } },
+      { error: { code: "INVALID_REQUEST", message: "Parametro id requerido." } },
       { status: 400 }
     );
   }
-
   try {
     const updated = await danteBridge.removeProvider(id);
     const parsedOutput = DanteProvidersResponseSchema.safeParse(updated);

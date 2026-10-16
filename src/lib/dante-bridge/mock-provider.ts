@@ -35,6 +35,7 @@ export class MockDanteProvider {
       usageToday: 14,
       dailyLimit: 14400,
       is_public: false,
+      models: ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768"],
     },
     {
       id: "gemini-flash",
@@ -44,6 +45,7 @@ export class MockDanteProvider {
       usageToday: 6,
       dailyLimit: 1500,
       is_public: false,
+      models: ["gemini-2.0-flash", "gemini-1.5-pro"],
     },
     {
       id: "mock-local",
@@ -53,6 +55,7 @@ export class MockDanteProvider {
       usageToday: 28,
       dailyLimit: 999999,
       is_public: true,
+      models: ["mock-dante"],
     },
   ];
 
@@ -470,6 +473,7 @@ export class MockDanteProvider {
       usageToday: 0,
       dailyLimit: 1000,
       is_public: false,
+      models: [],
     });
 
     return this.getProviders();

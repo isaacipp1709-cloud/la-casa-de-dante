@@ -10,14 +10,15 @@
     "test": "tsx --test src/lib/dante-bridge/__tests__/resilience.test.ts",
     "verify:bridge": "tsx scripts/verify-bridge.ts",
     "verify:chat-route": "tsx scripts/verify-chat-route.ts",
-    "verify:chat-ui": "tsx scripts/verify-chat-ui.ts"
+    "verify:chat-ui": "tsx scripts/verify-chat-ui.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.117.2",
     "clsx": "^2.1.1",
     "groq-sdk": "^1.6.0",
-    "lucide-react": "^1.49.0",
+    "lucide-react": "^1.57.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",

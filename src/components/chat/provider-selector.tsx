@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { RefreshCw } from "lucide-react";
 
 export interface ProviderOption {
   id: string;
@@ -46,7 +45,8 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
           throw new Error("HTTP " + response.status + ": " + response.statusText);
         }
       } catch (err) {
-        console.warn("Failed to load providers from backend:", err.message);
+        const reason = err instanceof Error ? err.message : String(err);
+        console.warn("Failed to load providers from backend:", reason);
         setError("No se pudo cargar la lista de proveedores desde el backend");
         // Fall back to static mock catalog - explicitly marked as unverified
         setProviders([
