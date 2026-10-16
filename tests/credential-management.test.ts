@@ -27,7 +27,7 @@ function request(url: string, method = 'GET', body?: unknown, headers: Record<st
 }
 
 function depsFor(ownerId: string, service: CredentialService): CredentialHandlerDeps {
-  return { resolveOwner: async () => ({ ok: true, ownerId }), createService: () => service };
+  return { resolveOwner: async () => ({ ok: true, ownerId }), createService: () => service, fallbackEnabled: true };
 }
 
 describe('Gestion de credenciales desde la UI', () => {
@@ -127,6 +127,7 @@ describe('Gestion de credenciales desde la UI', () => {
     const deps: CredentialHandlerDeps = {
       resolveOwner: (req) => resolveOwnerFromRequest(req, { env: {} }),
       createService: () => service,
+      fallbackEnabled: true,
     };
 
     const noAuth = await handleDeleteCredential(

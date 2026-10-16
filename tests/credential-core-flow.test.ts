@@ -81,7 +81,7 @@ function jsonRequest(url: string, body?: unknown, method = 'POST'): Request {
 
 function deps(ownerId: string, core: CoreCredentialPort | undefined, service?: CredentialService): CredentialHandlerDeps {
   const local = service ?? new CredentialService(MASTER_SECRET);
-  return { resolveOwner: async () => ({ ok: true, ownerId }), createService: () => local, core };
+  return { resolveOwner: async () => ({ ok: true, ownerId }), createService: () => local, core, fallbackEnabled: true };
 }
 
 describe('Ciclo BYOK a traves de Dante-AI-Core', () => {
@@ -268,8 +268,17 @@ describe('Identidad firmada de La Casa para el Core', () => {
 
 describe('Panel: estado real de credenciales BYOK', () => {
   it('refleja persistencia durable o temporal sin exponer detalles', () => {
+    const neonActive = {
+      id: 'database.neon',
+      name: 'Base de datos (Neon)',
+      type: 'database' as const,
+      owner: 'system' as const,
+      canToggle: false,
+      credentialSource: 'system' as const,
+      status: 'active' as const,
+    };
     const durable = composeConnectionsPanel({
-      core: { generatedAt: 'now', storage: 'durable', connections: [] },
+      core: { generatedAt: 'now', storage: 'durable', connections: [neonActive] },
       bridgeReachable: true,
       authConfigured: true,
       byokCounts: { gemini: 1 },
@@ -278,6 +287,17 @@ describe('Panel: estado real de credenciales BYOK', () => {
     assert.equal(byok?.status, 'active');
     assert.equal(byok?.byokAvailable, true);
     assert.match(String(byok?.detail), /durable/i);
+    assert.match(String(byok?.detail), /verificada/i);
+
+    // Con DATABASE_URL presente pero base no verificada NO se anuncia durable
+    const unverified = composeConnectionsPanel({
+      core: { generatedAt: 'now', storage: 'durable', connections: [{ ...neonActive, status: 'incomplete' as const }] },
+      bridgeReachable: true,
+      authConfigured: true,
+    });
+    const unverifiedRow = unverified.connections.find((c) => c.id === 'credentials.byok');
+    assert.equal(unverifiedRow?.status, 'incomplete');
+    assert.match(String(unverifiedRow?.detail), /no verificada/i);
 
     const temporary = composeConnectionsPanel({
       core: { generatedAt: 'now', storage: 'temporary', connections: [] },

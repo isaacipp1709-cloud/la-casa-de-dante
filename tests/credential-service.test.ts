@@ -20,6 +20,7 @@ function ownerDeps(ownerId: string, dispatch?: CredentialHandlerDeps['dispatch']
   return {
     resolveOwner: async () => ({ ok: true, ownerId }),
     createService: () => shared,
+    fallbackEnabled: true,
     dispatch,
   };
 }
@@ -147,6 +148,7 @@ describe('BYOK: endpoints y aislamiento por propietario', () => {
     const noAuthDeps: CredentialHandlerDeps = {
       resolveOwner: (request) => resolveOwnerFromRequest(request, { env: {} }),
       createService: () => new CredentialService(MASTER_SECRET),
+      fallbackEnabled: true,
     };
 
     // Sin cabecera Authorization -> 401
@@ -170,6 +172,7 @@ describe('BYOK: endpoints y aislamiento por propietario', () => {
     const deps: CredentialHandlerDeps = {
       resolveOwner: async () => ({ ok: true, ownerId: 'user-a' }),
       createService: () => new CredentialService(undefined),
+      fallbackEnabled: true,
     };
     const response = await handleSaveCredential(
       jsonRequest('http://local/api/credentials', { providerId: 'gemini', apiKey: 'sk-x' }),
@@ -209,6 +212,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     const deps: CredentialHandlerDeps = {
       resolveOwner: async () => ({ ok: true, ownerId: 'user-a' }),
       createService: () => service,
+      fallbackEnabled: true,
       dispatch: async (input) => { captured.push(input); return { content: 'respuesta del proveedor' }; },
     };
 

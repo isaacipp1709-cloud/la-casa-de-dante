@@ -41,7 +41,7 @@ function depsFor(
   service: CredentialService,
   dispatch: CredentialHandlerDeps['dispatch'],
 ): CredentialHandlerDeps {
-  return { resolveOwner: async () => ({ ok: true, ownerId }), createService: () => service, dispatch };
+  return { resolveOwner: async () => ({ ok: true, ownerId }), createService: () => service, dispatch, fallbackEnabled: true };
 }
 
 describe('BYOK: resolucion de credencial hasta el proveedor', () => {

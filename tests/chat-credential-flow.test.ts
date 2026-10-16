@@ -36,6 +36,7 @@ function depsFor(
   return {
     resolveOwner: async () => ({ ok: true, ownerId }),
     createService: () => service,
+    fallbackEnabled: true,
     dispatch,
   };
 }
