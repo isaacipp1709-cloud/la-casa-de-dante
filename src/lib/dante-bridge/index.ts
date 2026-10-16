@@ -1,4 +1,5 @@
 import { ownerAssertionHeaders } from "@/lib/credentials/owner-assertion";
+import { isCoreMode } from "./bridge-mode";
 import {
   DanteChatResponse,
   DanteNeuronsResponse,
@@ -111,7 +112,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
   }
 
   private isLocalCoreMode(): boolean {
-    return process.env.DANTE_MODE === 'local-core';
+    return isCoreMode();
   }
 
   async chat(payload: unknown): Promise<DanteChatResponse> {
