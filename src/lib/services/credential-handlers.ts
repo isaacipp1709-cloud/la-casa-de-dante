@@ -75,6 +75,11 @@ export interface CredentialHandlerDeps {
   dispatch?: ProviderDispatch;
   /** Modo de persistencia del fallback local. */
   storageMode?: () => CredentialStorage;
+  /**
+   * Habilita la boveda temporal en memoria. Solo para desarrollo explicito
+   * (DANTE_CREDENTIALS_FALLBACK=memory); nunca como recuperacion automatica.
+   */
+  fallbackEnabled?: boolean;
   /** Puente al Core: es la via preferente para todo el ciclo BYOK. */
   core?: CoreCredentialPort;
 }
@@ -247,6 +252,14 @@ export async function handleSaveCredential(
     };
   }
 
+  if (!deps.fallbackEnabled) {
+    return fail(
+      503,
+      'UNAVAILABLE',
+      'Dante-AI-Core no esta disponible: la credencial no se guardo.',
+    );
+  }
+
   const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
@@ -287,6 +300,10 @@ export async function handleListCredentials(
     };
   }
 
+  if (!deps.fallbackEnabled) {
+    return fail(503, 'UNAVAILABLE', 'Dante-AI-Core no esta disponible para listar credenciales.');
+  }
+
   const serviceResult = requireService(request, deps);
   if (!serviceResult.ok) return serviceResult.result;
 
@@ -318,6 +335,10 @@ export async function handleDeleteCredential(
       status: 200,
       body: { deleted: true, credentialId, storage: viaCore.value.storage },
     };
+  }
+
+  if (!deps.fallbackEnabled) {
+    return fail(503, 'UNAVAILABLE', 'Dante-AI-Core no esta disponible para eliminar credenciales.');
   }
 
   const serviceResult = requireService(request, deps);
@@ -423,6 +444,13 @@ async function executeChatWithCredential(
   if (viaCore) {
     if (!viaCore.ok) return { ok: false, result: viaCore.result };
     return { ok: true, response: viaCore.value, viaCore: true };
+  }
+
+  if (!deps.fallbackEnabled) {
+    return {
+      ok: false,
+      result: fail(503, 'UNAVAILABLE', 'Dante-AI-Core no esta disponible para ejecutar el chat.'),
+    };
   }
 
   const serviceResult = requireService(request, deps);

@@ -45,6 +45,8 @@ export const credentialHandlerDeps: CredentialHandlerDeps = {
   createService: createCredentialService,
   dispatch,
   storageMode: () => 'temporary',
+  // Solo desarrollo explicito: nunca recuperacion automatica ante fallo del Core.
+  fallbackEnabled: process.env.DANTE_CREDENTIALS_FALLBACK === 'memory',
   core: corePort,
 };
 
