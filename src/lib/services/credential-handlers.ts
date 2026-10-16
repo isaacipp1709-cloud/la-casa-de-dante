@@ -83,6 +83,21 @@ export function rejectClientSuppliedApiKey(body: Record<string, unknown>): Handl
   );
 }
 
+/** Rechaza claves enviadas en operaciones que no las admiten (lectura o borrado). */
+export function rejectClientKeyInRequest(request: Request): HandlerResult | null {
+  const url = new URL(request.url);
+  for (const field of CLIENT_KEY_FIELDS) {
+    if (url.searchParams.get(field)) {
+      return fail(400, 'INVALID_REQUEST', 'API keys must not be sent by the client.');
+    }
+  }
+  const header = request.headers.get('x-api-key');
+  if (typeof header === 'string' && header.trim().length > 0) {
+    return fail(400, 'INVALID_REQUEST', 'API keys must not be sent by the client.');
+  }
+  return null;
+}
+
 async function requireOwner(
   request: Request,
   deps: CredentialHandlerDeps,
@@ -227,6 +242,9 @@ export async function handleSaveCredential(request: Request, deps: CredentialHan
 
 /** GET /api/credentials: solo metadatos del propietario autenticado. */
 export async function handleListCredentials(request: Request, deps: CredentialHandlerDeps): Promise<HandlerResult> {
+  const clientKey = rejectClientKeyInRequest(request);
+  if (clientKey) return clientKey;
+
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
 
@@ -350,4 +368,37 @@ export async function handleChatWithStoredCredentialFromBody(
       model: run.execution.model,
     },
   };
+}
+
+/**
+ * DELETE /api/credentials/[credentialId]: elimina solo una credencial del
+ * propietario autenticado. Ajena o inexistente -> mismo error generico.
+ */
+export async function handleDeleteCredential(
+  request: Request,
+  credentialId: string,
+  deps: CredentialHandlerDeps,
+): Promise<HandlerResult> {
+  const clientKey = rejectClientKeyInRequest(request);
+  if (clientKey) return clientKey;
+
+  const owner = await requireOwner(request, deps);
+  if (!owner.ok) return owner.result;
+
+  const serviceResult = requireService(deps);
+  if (!serviceResult.ok) return serviceResult.result;
+
+  if (typeof credentialId !== 'string' || credentialId.trim().length === 0) {
+    return fail(400, 'INVALID_REQUEST', 'credentialId is required.');
+  }
+
+  try {
+    serviceResult.service.deleteForOwner(credentialId, owner.ownerId);
+    return { status: 200, body: { deleted: true, credentialId } };
+  } catch (error) {
+    if (error instanceof CredentialNotFoundError) {
+      return fail(404, 'NOT_FOUND', 'Credential not found.');
+    }
+    return fail(500, 'INTERNAL_ERROR', 'Failed to delete credential.');
+  }
 }

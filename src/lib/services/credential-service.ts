@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { BYOK_PROVIDER_IDS, isAllowedProviderId } from '../credentials/provider-catalog';
 
 /**
  * Servicio unico de credenciales BYOK.
@@ -13,12 +14,12 @@ export const CREDENTIAL_KEY_BYTES = 32;
 export const CREDENTIAL_IV_BYTES = 12;
 export const CREDENTIAL_SALT = 'dante-byok-v1';
 
-/** Proveedores permitidos para guardar credenciales. */
-export const PROVIDER_ALLOWLIST = ['gemini', 'groq', 'ollama', 'huggingface', 'mock'] as const;
-export type AllowedProviderId = (typeof PROVIDER_ALLOWLIST)[number];
+/** Proveedores permitidos, derivados del catalogo compartido con la UI. */
+export const PROVIDER_ALLOWLIST: readonly string[] = BYOK_PROVIDER_IDS;
+export type AllowedProviderId = string;
 
 export function isAllowedProvider(value: unknown): value is AllowedProviderId {
-  return typeof value === 'string' && (PROVIDER_ALLOWLIST as readonly string[]).includes(value);
+  return isAllowedProviderId(value);
 }
 
 /** Configuracion ausente o invalida (nunca hay valor por defecto silencioso). */
@@ -145,6 +146,18 @@ export class CredentialService {
     };
     this.store.set(record.credentialId, record);
     return toMetadata(record);
+  }
+
+  /**
+   * Elimina la credencial y sus datos cifrados asociados.
+   * Inexistente y ajena producen el MISMO error generico: no hay borrado cruzado.
+   */
+  deleteForOwner(credentialId: string, ownerId: string): void {
+    const record = this.store.get(credentialId);
+    if (!record || record.ownerId !== ownerId) {
+      throw new CredentialNotFoundError();
+    }
+    this.store.delete(credentialId);
   }
 
   /** Metadatos del propietario autenticado unicamente. */
