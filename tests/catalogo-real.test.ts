@@ -1,58 +1,44 @@
+// Catalogo de proveedores: contrato del endpoint /api/providers.
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { DanteProvidersResponseSchema } from '../src/contracts/dante';
 
-// Incremento 2: Catalogo Real - Pruebas de endpoint /api/providers
-// Verifica que el endpoint devuelve proveedores con modelos
-
-import { DanteProvidersResponseSchema } from "@/contracts/dante";
-
-describe("CATALOGO REAL: /api/providers endpoint", () => {
-  test("endpoint devuelve proveedores con modelos", () => {
-    // Datos simulados del endpoint (lo que el backend debe devolver)
-    const mockData = [
-      { id: "gemini", name: "Google Gemini", category: "razonamiento", is_active: true, usageToday: 6, dailyLimit: 1500, is_public: false, models: ["gemini-2.0-flash", "gemini-1.5-pro"] },
-      { id: "groq", name: "Groq", category: "razonamiento", is_active: false, usageToday: 14, dailyLimit: 14400, is_public: false, models: ["llama3-8b-8192", "llama3-70b-8192"] },
-      { id: "mock", name: "Mock Local", category: "deterministic-fallback", is_active: true, usageToday: 28, dailyLimit: 999999, is_public: true, models: ["mock-dante"] }
+describe('CATALOGO REAL: /api/providers endpoint', () => {
+  it('el endpoint devuelve proveedores con modelos', () => {
+    const payload = [
+      { id: 'gemini', name: 'Google Gemini', category: 'razonamiento', is_active: true, usageToday: 6, dailyLimit: 1500, is_public: false, models: ['gemini-2.0-flash', 'gemini-1.5-pro'] },
+      { id: 'groq', name: 'Groq', category: 'razonamiento', is_active: false, usageToday: 14, dailyLimit: 14400, is_public: false, models: ['llama3-8b-8192', 'llama3-70b-8192'] },
+      { id: 'mock', name: 'Mock Local', category: 'deterministic-fallback', is_active: true, usageToday: 28, dailyLimit: 999999, is_public: true, models: ['mock-dante'] },
     ];
-    
-    const parsed = DanteProvidersResponseSchema.safeParse(mockData);
-    expect(parsed.success).toBe(true);
+
+    const parsed = DanteProvidersResponseSchema.safeParse(payload);
+    assert.equal(parsed.success, true);
     if (parsed.success) {
-      expect(parsed.data.length).toBeGreaterThan(0);
-      // Cada proveedor debe tener modelos definidos
-      for (const p of parsed.data) {
-        expect(p).toHaveProperty("models");
-        expect(Array.isArray(p.models)).toBe(true);
+      assert.ok(parsed.data.length > 0);
+      for (const provider of parsed.data) {
+        assert.ok(Array.isArray(provider.models), 'cada proveedor expone modelos');
       }
     }
   });
 
-  test("combinacion proveedor/modelo validada por backend", () => {
-    // El backend valida que el proveedor existe y tiene el modelo
-    const validProviders = ["gemini", "groq", "ollama", "mock"];
-    const validCombinations = [
-      { provider: "gemini", model: "gemini-2.0-flash" },
-      { provider: "groq", model: "llama3-8b-8192" }
+  it('el endpoint no expone claves ni configuracion interna', () => {
+    const payload = [
+      { id: 'gemini', name: 'Google Gemini', category: 'razonamiento', is_active: true, usageToday: 6, dailyLimit: 1500, is_public: false, models: ['gemini-2.0-flash'] },
     ];
-    
-    for (const combo of validCombinations) {
-      expect(validProviders).toContain(combo.provider);
-      expect(combo.model).toBeTruthy();
+    const parsed = DanteProvidersResponseSchema.safeParse(payload);
+    assert.equal(parsed.success, true);
+    const serialized = JSON.stringify(parsed.success ? parsed.data : []);
+    assert.ok(!/apiKey|api_key|secret|token/i.test(serialized), 'sin credenciales en la respuesta');
+  });
+
+  it('la disponibilidad la decide el backend (is_active), no la UI', () => {
+    const payload = [
+      { id: 'groq', name: 'Groq', category: 'razonamiento', is_active: false, usageToday: 14, dailyLimit: 14400, is_public: false, models: ['llama3-8b-8192'] },
+    ];
+    const parsed = DanteProvidersResponseSchema.safeParse(payload);
+    assert.equal(parsed.success, true);
+    if (parsed.success) {
+      assert.equal(parsed.data[0].is_active, false, 'el estado viene del backend');
     }
   });
-
-  test("selector consume endpoint (simulado)", () => {
-    // El selector debe hacer fetch a /api/providers
-    const endpoint = "/api/providers";
-    expect(endpoint).toBeTruthy();
-    expect(typeof endpoint).toBe("string");
-  });
-
-  test("backend decide disponibilidad, no UI", () => {
-    // El endpoint /api/providers debe ser la fuente de verdad
-    expect("/api/providers").toBeTruthy();
-    expect("UI no debe usar process.env").toBeTruthy();
-    // El fix (cc681bb) removió env vars de la UI
-  });
 });
-
-// NOTA: Estas pruebas verifican el contrato del endpoint, no conexiones reales
-// No se conectan a APIs externas ni requieren credenciales reales

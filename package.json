@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/lib/dante-bridge/__tests__/resilience.test.ts",
+    "test": "tsx --test src/lib/dante-bridge/__tests__/resilience.test.ts tests/provider-selection.test.ts tests/catalogo-real.test.ts tests/credential-service.test.ts",
     "verify:bridge": "tsx scripts/verify-bridge.ts",
     "verify:chat-route": "tsx scripts/verify-chat-route.ts",
     "verify:chat-ui": "tsx scripts/verify-chat-ui.ts",
