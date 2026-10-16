@@ -1,43 +1,183 @@
+import crypto from 'node:crypto';
 
-// Servicio unico de credenciales - aislamiento por propietario
-// Nunca devuelve la clave guardada. Usa cifrado autenticado.
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+/**
+ * Servicio unico de credenciales BYOK.
+ * - Cifrado autenticado AES-256-GCM (authTag verificado al descifrar).
+ * - CLAVE MAESTRA nunca se guarda en el repositorio: se deriva de CREDENTIAL_MASTER_SECRET.
+ * - Aislamiento por propietario: toda lectura exige ownerId coincidente.
+ * - Nunca expone la clave en texto plano fuera del resultado de resolveForOwner.
+ */
+
+export const CREDENTIAL_ALGORITHM = 'aes-256-gcm' as const;
+export const CREDENTIAL_KEY_BYTES = 32;
+export const CREDENTIAL_IV_BYTES = 12;
+export const CREDENTIAL_SALT = 'dante-byok-v1';
+
+/** Proveedores permitidos para guardar credenciales. */
+export const PROVIDER_ALLOWLIST = ['gemini', 'groq', 'ollama', 'huggingface', 'mock'] as const;
+export type AllowedProviderId = (typeof PROVIDER_ALLOWLIST)[number];
+
+export function isAllowedProvider(value: unknown): value is AllowedProviderId {
+  return typeof value === 'string' && (PROVIDER_ALLOWLIST as readonly string[]).includes(value);
+}
+
+/** Configuracion ausente o invalida (nunca hay valor por defecto silencioso). */
+export class CredentialConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CredentialConfigurationError';
+  }
+}
+
+/** Error generico: no revela si la credencial existe o pertenece a otro usuario. */
+export class CredentialNotFoundError extends Error {
+  constructor() {
+    super('Credential not found');
+    this.name = 'CredentialNotFoundError';
+  }
+}
+
+/** Error generico de integridad: authTag invalido o sobre manipulado. */
+export class CredentialIntegrityError extends Error {
+  constructor() {
+    super('Invalid credential');
+    this.name = 'CredentialIntegrityError';
+  }
+}
+
+export class UnsupportedProviderError extends Error {
+  constructor() {
+    super('Provider not allowed');
+    this.name = 'UnsupportedProviderError';
+  }
+}
+
+export interface EncryptedPayload {
+  algorithm: string;
+  iv: string;
+  authTag: string;
+  ciphertext: string;
+}
+
+export interface CredentialRecord {
+  credentialId: string;
+  ownerId: string;
+  providerId: string;
+  model?: string;
+  createdAt: string;
+  encrypted: EncryptedPayload;
+}
+
+/** Metadatos seguros: nunca incluyen clave ni datos cifrados. */
+export interface CredentialMetadata {
+  credentialId: string;
+  providerId: string;
+  model?: string;
+  createdAt: string;
+  status: 'active';
+}
+
+/** Deriva la clave maestra de 32 bytes. Sin secreto -> configuración inválida. */
+export function deriveMasterKey(masterSecret: string | undefined): Buffer {
+  if (typeof masterSecret !== 'string' || masterSecret.length === 0) {
+    throw new CredentialConfigurationError('CREDENTIAL_MASTER_SECRET is not configured');
+  }
+  return crypto.scryptSync(masterSecret, CREDENTIAL_SALT, CREDENTIAL_KEY_BYTES);
+}
 
 export class CredentialService {
-  private masterKey: Buffer;
-  
-  constructor(masterSecret: string) {
-    if (!masterSecret || masterSecret.length < 32) {
-      throw new Error('Configuration missing: master secret required (>=32 chars)');
+  private readonly masterKey: Buffer;
+  private readonly store: Map<string, CredentialRecord>;
+
+  constructor(masterSecret: string | undefined, store?: Map<string, CredentialRecord>) {
+    this.masterKey = deriveMasterKey(masterSecret);
+    this.store = store ?? new Map<string, CredentialRecord>();
+  }
+
+  /** Cifra con IV aleatorio de 12 bytes y devuelve los campos por separado. */
+  encrypt(plaintext: string): EncryptedPayload {
+    const iv = crypto.randomBytes(CREDENTIAL_IV_BYTES);
+    const cipher = crypto.createCipheriv(CREDENTIAL_ALGORITHM, this.masterKey, iv);
+    let ciphertext = cipher.update(plaintext, 'utf8', 'hex');
+    ciphertext += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    return { algorithm: CREDENTIAL_ALGORITHM, iv: iv.toString('hex'), authTag, ciphertext };
+  }
+
+  /** Descifra verificando el authTag. Cualquier fallo -> error generico. */
+  decrypt(payload: EncryptedPayload): string {
+    if (!payload || payload.algorithm !== CREDENTIAL_ALGORITHM) {
+      throw new CredentialIntegrityError();
     }
-    this.masterKey = Buffer.from(masterSecret.slice(0, 32));
-  }
-  
-  encrypt(value: string, ownerId: string): string {
-    const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-cbc', this.masterKey, iv);
-    let encrypted = cipher.update(value, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    // Combine iv + encrypted + owner tag
-    return iv.toString('hex') + ':' + encrypted + ':' + ownerId;
-  }
-  
-  // Decrypt only if owner matches - protects cross-user access
-  decrypt(token: string, requesterId: string): string {
-    const [ivHex, encrypted, ownerId] = token.split(':');
-    if (ownerId !== requesterId) {
-      throw new Error('Access denied: credential belongs to different owner');
+    try {
+      const decipher = crypto.createDecipheriv(
+        CREDENTIAL_ALGORITHM,
+        this.masterKey,
+        Buffer.from(payload.iv, 'hex'),
+      );
+      decipher.setAuthTag(Buffer.from(payload.authTag, 'hex'));
+      let plaintext = decipher.update(payload.ciphertext, 'hex', 'utf8');
+      plaintext += decipher.final('utf8');
+      return plaintext;
+    } catch {
+      throw new CredentialIntegrityError();
     }
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = createDecipheriv('aes-256-cbc', this.masterKey, iv);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
   }
-  
-  // Never return the raw secret
-  getKeyIdentifier(token: string): { ownerId: string; masked: string } {
-    const parts = token.split(':');
-    return { ownerId: parts[2] || 'unknown', masked: '***' + (parts[2] ? parts[2].slice(-4) : '') };
+
+  /** Guarda la credencial asociada al propietario autenticado. Devuelve solo metadatos. */
+  save(input: { ownerId: string; providerId: string; apiKey: string; model?: string }): CredentialMetadata {
+    if (typeof input.ownerId !== 'string' || input.ownerId.length === 0) {
+      throw new CredentialConfigurationError('ownerId is required');
+    }
+    if (!isAllowedProvider(input.providerId)) {
+      throw new UnsupportedProviderError();
+    }
+    if (typeof input.apiKey !== 'string' || input.apiKey.trim().length === 0) {
+      throw new CredentialConfigurationError('apiKey is required');
+    }
+    const record: CredentialRecord = {
+      credentialId: crypto.randomUUID(),
+      ownerId: input.ownerId,
+      providerId: input.providerId,
+      model: input.model,
+      createdAt: new Date().toISOString(),
+      encrypted: this.encrypt(input.apiKey),
+    };
+    this.store.set(record.credentialId, record);
+    return toMetadata(record);
   }
+
+  /** Metadatos del propietario autenticado unicamente. */
+  listMetadata(ownerId: string): CredentialMetadata[] {
+    return Array.from(this.store.values())
+      .filter((record) => record.ownerId === ownerId)
+      .map(toMetadata);
+  }
+
+  /**
+   * Resuelve la credencial para su uso en chat.
+   * Filtra por propietario: inexistente y ajena producen el MISMO error generico.
+   */
+  resolveForOwner(credentialId: string, ownerId: string): { providerId: string; model?: string; apiKey: string } {
+    const record = this.store.get(credentialId);
+    if (!record || record.ownerId !== ownerId) {
+      throw new CredentialNotFoundError();
+    }
+    return {
+      providerId: record.providerId,
+      model: record.model,
+      apiKey: this.decrypt(record.encrypted),
+    };
+  }
+
+}
+
+function toMetadata(record: CredentialRecord): CredentialMetadata {
+  return {
+    credentialId: record.credentialId,
+    providerId: record.providerId,
+    model: record.model,
+    createdAt: record.createdAt,
+    status: 'active',
+  };
 }
