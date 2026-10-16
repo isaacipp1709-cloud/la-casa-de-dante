@@ -1,35 +1,51 @@
+import { danteBridge } from '../dante-bridge';
 import { readBearerToken, resolveOwnerFromRequest } from '../auth/server-owner';
 import { CredentialService } from './credential-service';
-import { getCredentialStorageMode, getCredentialStore } from '../credentials/credential-store-factory';
+import { InMemoryCredentialStore } from '../credentials/credential-store';
 import { createProviderDispatch } from './provider-dispatch';
 import { defaultProviderAdapters } from './provider-adapters';
-import type { CredentialHandlerDeps } from './credential-handlers';
+import type { CoreCredentialPort, CredentialHandlerDeps } from './credential-handlers';
 
 /**
- * Cableado unico de credenciales para los endpoints de chat.
+ * Cableado de credenciales de La Casa.
  *
- * PERSISTENCIA: durable (Supabase) cuando existen SUPABASE_URL y SUPABASE_ANON_KEY;
- * en caso contrario cae al store en memoria del proceso, que NO es durable:
- * los datos se pierden al reiniciar. El fallback nunca se elimina.
- *
- * El cliente durable se crea por solicitud con el token del usuario autenticado
- * (clave anon, nunca service_role) para que RLS aplique con auth.uid().
+ * La Casa NO persiste credenciales: el ciclo completo (cifrado, persistencia en
+ * Neon y ejecucion) ocurre en Dante-AI-Core a traves del bridge autenticado, con
+ * la identidad del usuario firmada. El store en memoria solo actua como fallback
+ * de desarrollo cuando el Core no responde, y se reporta como temporal.
  */
 
-export function createCredentialService(request?: Request): CredentialService {
-  const accessToken = request ? readBearerToken(request.headers) ?? undefined : undefined;
-  return new CredentialService(
-    process.env.CREDENTIAL_MASTER_SECRET,
-    getCredentialStore({ accessToken }),
-  );
+const globalStore = globalThis as unknown as {
+  __danteCredentialMemoryStore?: InMemoryCredentialStore;
+};
+
+function memoryStore(): InMemoryCredentialStore {
+  if (!globalStore.__danteCredentialMemoryStore) {
+    globalStore.__danteCredentialMemoryStore = new InMemoryCredentialStore();
+  }
+  return globalStore.__danteCredentialMemoryStore;
 }
 
-/** Adaptador real: gemini usa la clave resuelta del propietario autenticado. */
+export function createCredentialService(): CredentialService {
+  return new CredentialService(process.env.CREDENTIAL_MASTER_SECRET, memoryStore());
+}
+
+/** Puente al Core: via preferente para crear, listar, eliminar y chatear. */
+const corePort: CoreCredentialPort = {
+  createCredential: (input) => danteBridge.createCredential(input),
+  listCredentials: (ownerId) => danteBridge.listCredentials(ownerId),
+  deleteCredential: (ownerId, credentialId) => danteBridge.deleteCredential(ownerId, credentialId),
+  chatWithStoredCredential: (input) => danteBridge.chatWithStoredCredential(input),
+};
+
 const dispatch = createProviderDispatch(defaultProviderAdapters);
 
 export const credentialHandlerDeps: CredentialHandlerDeps = {
   resolveOwner: (request) => resolveOwnerFromRequest(request),
   createService: createCredentialService,
   dispatch,
-  storageMode: () => getCredentialStorageMode(),
+  storageMode: () => 'temporary',
+  core: corePort,
 };
+
+export { readBearerToken };

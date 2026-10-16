@@ -17,11 +17,24 @@ import {
   ProviderUnsupportedError,
 } from './provider-errors';
 import type { ProviderDispatch, ProviderRole } from './provider-dispatch';
+import type { CredentialMetadata, CredentialStorage } from '../../contracts/connections';
+
+/** Contrato minimo de respuesta de chat que La Casa consume del Core. */
+export interface ChatResponseLike {
+  message: { role: 'user' | 'assistant' | 'system'; content: string; timestamp?: string };
+  status: 'success' | 'error';
+  correlationId: string;
+  providerId?: string;
+  model?: string;
+}
 
 /**
- * Logica de los endpoints BYOK, con dependencias inyectables para poder probarla
- * sin servicios externos. Los handlers NO aceptan identidad del cliente:
- * el ownerId solo puede venir de deps.resolveOwner (verificacion server-side).
+ * Endpoints de credenciales de La Casa.
+ *
+ * La Casa NO es dueña de las credenciales: las operaciones se delegan en
+ * Dante-AI-Core (que cifra y persiste en Neon). El store en memoria local solo
+ * actua como fallback de desarrollo cuando el Core no esta disponible, y en ese
+ * caso la respuesta se marca explicitamente como temporal.
  */
 
 export interface HandlerResult {
@@ -29,13 +42,41 @@ export interface HandlerResult {
   body: Record<string, unknown>;
 }
 
+/** Puerto hacia Dante-AI-Core (cifra, persiste y ejecuta con la credencial). */
+export interface CoreCredentialPort {
+  createCredential(input: { ownerId: string; providerId: string; apiKey: string }): Promise<{
+    storage: CredentialStorage;
+    credential: CredentialMetadata;
+  }>;
+  listCredentials(ownerId: string): Promise<{
+    storage: CredentialStorage;
+    credentials: CredentialMetadata[];
+  }>;
+  deleteCredential(
+    ownerId: string,
+    credentialId: string,
+  ): Promise<{ storage: CredentialStorage; credentialId: string }>;
+  chatWithStoredCredential(input: {
+    ownerId: string;
+    credentialId: string;
+    messages: Array<{ role: ProviderRole; content: string }>;
+    model?: string;
+    conversationId?: string;
+    timezone?: string;
+    locale?: string;
+  }): Promise<ChatResponseLike>;
+}
+
 export interface CredentialHandlerDeps {
   resolveOwner: (request: Request) => Promise<OwnerResolution>;
+  /** Fallback local en memoria (temporal) cuando el Core no responde. */
   createService: (request: Request) => CredentialService;
-  /** Transporte hacia el proveedor real. Sin el, la ejecucion no es posible. */
+  /** Transporte local al proveedor, solo para el fallback. */
   dispatch?: ProviderDispatch;
-  /** Modo de persistencia efectivo, para informar a la UI sin exponer detalles internos. */
-  storageMode?: () => 'durable' | 'memory';
+  /** Modo de persistencia del fallback local. */
+  storageMode?: () => CredentialStorage;
+  /** Puente al Core: es la via preferente para todo el ciclo BYOK. */
+  core?: CoreCredentialPort;
 }
 
 function fail(status: number, code: string, message: string): HandlerResult {
@@ -48,7 +89,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 const ALLOWED_ROLES: readonly ProviderRole[] = ['user', 'assistant', 'system'];
 
-/** Solo rol valido y contenido no vacio: cualquier otro campo del cliente (incluida una clave) se descarta. */
+/** Solo rol valido y contenido no vacio: cualquier otro campo (incluida una clave) se descarta. */
 function sanitizeMessages(value: unknown): Array<{ role: ProviderRole; content: string }> {
   if (!Array.isArray(value)) return [];
   const cleaned: Array<{ role: ProviderRole; content: string }> = [];
@@ -65,7 +106,6 @@ function sanitizeMessages(value: unknown): Array<{ role: ProviderRole; content: 
   return cleaned;
 }
 
-/** Claves que el navegador nunca debe enviar: la identidad de la credencial es credentialId. */
 const CLIENT_KEY_FIELDS = ['apiKey', 'api_key', 'apikey'];
 
 export function hasClientSuppliedApiKey(body: Record<string, unknown>): boolean {
@@ -125,7 +165,9 @@ function requireService(
   }
 }
 
-async function readJsonBody(request: Request): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; result: HandlerResult }> {
+async function readJsonBody(
+  request: Request,
+): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; result: HandlerResult }> {
   try {
     const parsed: unknown = await request.json();
     return { ok: true, body: asRecord(parsed) };
@@ -134,7 +176,165 @@ async function readJsonBody(request: Request): Promise<{ ok: true; body: Record<
   }
 }
 
-/** Traduce respuestas y fallos del proveedor a codigos estables sin filtrar detalles sensibles. */
+/** Fallo del Core con respuesta HTTP: no es una caida, es una decision suya. */
+function coreHttpStatus(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : '';
+  const match = /^CORE_HTTP_([0-9]{3})$/.exec(message);
+  if (!match) return null;
+  return Number(match[1]);
+}
+
+function coreFailureResult(status: number): HandlerResult {
+  if (status === 400) return fail(400, 'INVALID_REQUEST', 'El Core rechazo la solicitud.');
+  if (status === 401 || status === 403) {
+    return fail(401, 'PROVIDER_UNAUTHORIZED', 'El Core rechazo la credencial.');
+  }
+  if (status === 404) return fail(404, 'NOT_FOUND', 'Credential not found.');
+  if (status === 429) return fail(429, 'PROVIDER_RATE_LIMITED', 'Limite de uso alcanzado.');
+  if (status === 504) return fail(504, 'PROVIDER_TIMEOUT', 'El Core no respondio a tiempo.');
+  return fail(502, 'CORE_ERROR', 'Dante-AI-Core no pudo completar la operacion.');
+}
+
+/**
+ * Intenta la operacion en el Core. Devuelve el resultado o, si el Core no esta
+ * disponible (red/timeout/5xx), null para que el llamador use el fallback temporal.
+ */
+async function tryCore<T>(
+  deps: CredentialHandlerDeps,
+  operation: (core: CoreCredentialPort) => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false; result: HandlerResult } | null> {
+  if (!deps.core) return null;
+  try {
+    return { ok: true, value: await operation(deps.core) };
+  } catch (error) {
+    const status = coreHttpStatus(error);
+    if (status !== null && status >= 400 && status < 500) {
+      return { ok: false, result: coreFailureResult(status) };
+    }
+    return null;
+  }
+}
+
+/** POST /api/credentials: guarda en el Core (cifrado y persistencia alli). */
+export async function handleSaveCredential(
+  request: Request,
+  deps: CredentialHandlerDeps,
+): Promise<HandlerResult> {
+  const owner = await requireOwner(request, deps);
+  if (!owner.ok) return owner.result;
+
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.result;
+
+  const providerId = typeof parsed.body.providerId === 'string' ? parsed.body.providerId : '';
+  const apiKey = typeof parsed.body.apiKey === 'string' ? parsed.body.apiKey : '';
+
+  if (!isAllowedProvider(providerId)) {
+    return fail(400, 'INVALID_REQUEST', 'providerId is not allowed.');
+  }
+  if (apiKey.trim().length === 0) {
+    return fail(400, 'INVALID_REQUEST', 'apiKey is required.');
+  }
+
+  const viaCore = await tryCore(deps, (core) =>
+    core.createCredential({ ownerId: owner.ownerId, providerId, apiKey }),
+  );
+  if (viaCore) {
+    if (!viaCore.ok) return viaCore.result;
+    return {
+      status: 201,
+      body: { saved: true, storage: viaCore.value.storage, credential: viaCore.value.credential },
+    };
+  }
+
+  const serviceResult = requireService(request, deps);
+  if (!serviceResult.ok) return serviceResult.result;
+
+  try {
+    const metadata = await serviceResult.service.save({ ownerId: owner.ownerId, providerId, apiKey });
+    return {
+      status: 201,
+      body: { saved: true, storage: 'temporary', credential: metadata, fallback: true },
+    };
+  } catch (error) {
+    if (error instanceof UnsupportedProviderError) {
+      return fail(400, 'INVALID_REQUEST', 'providerId is not allowed.');
+    }
+    if (error instanceof CredentialConfigurationError) {
+      return fail(500, 'CONFIGURATION_ERROR', error.message);
+    }
+    return fail(500, 'INTERNAL_ERROR', 'Failed to save credential.');
+  }
+}
+
+/** GET /api/credentials: metadatos del propietario, resueltos en el Core. */
+export async function handleListCredentials(
+  request: Request,
+  deps: CredentialHandlerDeps,
+): Promise<HandlerResult> {
+  const clientKey = rejectClientKeyInRequest(request);
+  if (clientKey) return clientKey;
+
+  const owner = await requireOwner(request, deps);
+  if (!owner.ok) return owner.result;
+
+  const viaCore = await tryCore(deps, (core) => core.listCredentials(owner.ownerId));
+  if (viaCore) {
+    if (!viaCore.ok) return viaCore.result;
+    return {
+      status: 200,
+      body: { credentials: viaCore.value.credentials, storage: viaCore.value.storage },
+    };
+  }
+
+  const serviceResult = requireService(request, deps);
+  if (!serviceResult.ok) return serviceResult.result;
+
+  const credentials = await serviceResult.service.listMetadata(owner.ownerId);
+  const storage = deps.storageMode ? deps.storageMode() : 'temporary';
+  return { status: 200, body: { credentials, storage, fallback: true } };
+}
+
+/** DELETE /api/credentials/[credentialId]: elimina solo si es del propietario. */
+export async function handleDeleteCredential(
+  request: Request,
+  credentialId: string,
+  deps: CredentialHandlerDeps,
+): Promise<HandlerResult> {
+  const clientKey = rejectClientKeyInRequest(request);
+  if (clientKey) return clientKey;
+
+  const owner = await requireOwner(request, deps);
+  if (!owner.ok) return owner.result;
+
+  if (typeof credentialId !== 'string' || credentialId.trim().length === 0) {
+    return fail(400, 'INVALID_REQUEST', 'credentialId is required.');
+  }
+
+  const viaCore = await tryCore(deps, (core) => core.deleteCredential(owner.ownerId, credentialId));
+  if (viaCore) {
+    if (!viaCore.ok) return viaCore.result;
+    return {
+      status: 200,
+      body: { deleted: true, credentialId, storage: viaCore.value.storage },
+    };
+  }
+
+  const serviceResult = requireService(request, deps);
+  if (!serviceResult.ok) return serviceResult.result;
+
+  try {
+    await serviceResult.service.deleteForOwner(credentialId, owner.ownerId);
+    return { status: 200, body: { deleted: true, credentialId, storage: 'temporary', fallback: true } };
+  } catch (error) {
+    if (error instanceof CredentialNotFoundError) {
+      return fail(404, 'NOT_FOUND', 'Credential not found.');
+    }
+    return fail(500, 'INTERNAL_ERROR', 'Failed to delete credential.');
+  }
+}
+
+/** Errores del adaptador local (solo fallback). */
 function mapProviderFailure(error: unknown): HandlerResult {
   if (error instanceof ProviderUnsupportedError) {
     return fail(501, 'PROVIDER_NOT_SUPPORTED', 'The selected provider is not supported yet.');
@@ -163,11 +363,7 @@ export interface ResolvedExecution {
   model?: string;
 }
 
-/**
- * Nucleo compartido por /api/chat y /api/chat/credentials: verifica propietario,
- * descifra la clave (vive solo en este frame) y ejecuta el adaptador del proveedor.
- * No duplica logica entre endpoints.
- */
+/** Resolucion local (solo fallback): la credencial vive en el store temporal. */
 export async function runWithResolvedCredential(
   ownerId: string,
   service: CredentialService,
@@ -180,14 +376,12 @@ export async function runWithResolvedCredential(
   try {
     resolved = await service.resolveForOwner(credentialId, ownerId);
   } catch (error) {
-    // Inexistente y ajena devuelven el mismo error generico: no se filtra existencia.
     if (error instanceof CredentialNotFoundError || error instanceof CredentialIntegrityError) {
       return { ok: false, result: fail(404, 'NOT_FOUND', 'Credential not found.') };
     }
     return { ok: false, result: fail(500, 'INTERNAL_ERROR', 'Failed to resolve credential.') };
   }
 
-  // La falta de despachador no debe ocultar el 404 de una credencial inexistente o ajena.
   if (!dispatch) {
     return { ok: false, result: fail(500, 'INTERNAL_ERROR', 'Provider dispatch is unavailable.') };
   }
@@ -208,66 +402,62 @@ export async function runWithResolvedCredential(
   }
 }
 
-/** POST /api/credentials: guarda la clave cifrada y devuelve solo metadatos. */
-export async function handleSaveCredential(request: Request, deps: CredentialHandlerDeps): Promise<HandlerResult> {
-  const owner = await requireOwner(request, deps);
-  if (!owner.ok) return owner.result;
-
-  const serviceResult = requireService(request, deps);
-  if (!serviceResult.ok) return serviceResult.result;
-
-  const parsed = await readJsonBody(request);
-  if (!parsed.ok) return parsed.result;
-
-  const providerId = typeof parsed.body.providerId === 'string' ? parsed.body.providerId : '';
-  const apiKey = typeof parsed.body.apiKey === 'string' ? parsed.body.apiKey : '';
-  if (!isAllowedProvider(providerId)) {
-    return fail(400, 'INVALID_REQUEST', 'providerId is not allowed.');
-  }
-  if (apiKey.trim().length === 0) {
-    return fail(400, 'INVALID_REQUEST', 'apiKey is required.');
-  }
-
-  try {
-    const metadata = await serviceResult.service.save({ ownerId: owner.ownerId, providerId, apiKey });
-    return { status: 201, body: { saved: true, credential: metadata } };
-  } catch (error) {
-    if (error instanceof UnsupportedProviderError) {
-      return fail(400, 'INVALID_REQUEST', 'providerId is not allowed.');
-    }
-    if (error instanceof CredentialConfigurationError) {
-      return fail(500, 'CONFIGURATION_ERROR', error.message);
-    }
-    return fail(500, 'INTERNAL_ERROR', 'Failed to save credential.');
-  }
-}
-
-/** GET /api/credentials: solo metadatos del propietario autenticado. */
-export async function handleListCredentials(request: Request, deps: CredentialHandlerDeps): Promise<HandlerResult> {
-  const clientKey = rejectClientKeyInRequest(request);
-  if (clientKey) return clientKey;
-
-  const owner = await requireOwner(request, deps);
-  if (!owner.ok) return owner.result;
-
-  const serviceResult = requireService(request, deps);
-  if (!serviceResult.ok) return serviceResult.result;
-
-  const credentials = await serviceResult.service.listMetadata(owner.ownerId);
-  const storage = deps.storageMode ? deps.storageMode() : undefined;
-  return { status: 200, body: { credentials, ...(storage ? { storage } : {}) } };
-}
-
 /**
- * POST /api/chat/credentials: resuelve el credentialId del propietario autenticado,
- * descifra la clave y ejecuta el proveedor real. La clave nunca sale de este alcance.
+ * Ejecuta el chat con una credencial: preferentemente en el Core
+ * (resolucion y descifrado alli), con fallback local si el Core no responde.
  */
-export async function handleChatWithCredential(request: Request, deps: CredentialHandlerDeps): Promise<HandlerResult> {
-  const owner = await requireOwner(request, deps);
-  if (!owner.ok) return owner.result;
+async function executeChatWithCredential(
+  request: Request,
+  ownerId: string,
+  credentialId: string,
+  messages: Array<{ role: ProviderRole; content: string }>,
+  model: string | undefined,
+  deps: CredentialHandlerDeps,
+): Promise<
+  | { ok: true; response: ChatResponseLike; viaCore: boolean }
+  | { ok: false; result: HandlerResult }
+> {
+  const viaCore = await tryCore(deps, (core) =>
+    core.chatWithStoredCredential({ ownerId, credentialId, messages, model }),
+  );
+  if (viaCore) {
+    if (!viaCore.ok) return { ok: false, result: viaCore.result };
+    return { ok: true, response: viaCore.value, viaCore: true };
+  }
 
   const serviceResult = requireService(request, deps);
-  if (!serviceResult.ok) return serviceResult.result;
+  if (!serviceResult.ok) return { ok: false, result: serviceResult.result };
+
+  const run = await runWithResolvedCredential(
+    ownerId,
+    serviceResult.service,
+    deps.dispatch,
+    credentialId,
+    messages,
+    model,
+  );
+  if (!run.ok) return { ok: false, result: run.result };
+
+  return {
+    ok: true,
+    viaCore: false,
+    response: {
+      message: { role: 'assistant', content: run.execution.content },
+      status: 'success',
+      correlationId: randomUUID(),
+      providerId: run.execution.providerId,
+      model: run.execution.model,
+    },
+  };
+}
+
+/** POST /api/chat/credentials: respuesta simple para clientes internos. */
+export async function handleChatWithCredential(
+  request: Request,
+  deps: CredentialHandlerDeps,
+): Promise<HandlerResult> {
+  const owner = await requireOwner(request, deps);
+  if (!owner.ok) return owner.result;
 
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.result;
@@ -286,43 +476,39 @@ export async function handleChatWithCredential(request: Request, deps: Credentia
   }
 
   const requestedModel = typeof parsed.body.model === 'string' ? parsed.body.model : undefined;
-  const run = await runWithResolvedCredential(
+  const executed = await executeChatWithCredential(
+    request,
     owner.ownerId,
-    serviceResult.service,
-    deps.dispatch,
     credentialId,
     messages,
     requestedModel,
+    deps,
   );
-  if (!run.ok) return run.result;
+  if (!executed.ok) return executed.result;
 
   return {
     status: 200,
     body: {
-      content: run.execution.content,
-      providerId: run.execution.providerId,
-      model: run.execution.model,
+      content: executed.response.message.content,
+      providerId: executed.response.providerId,
+      model: executed.response.model,
       credentialId,
       usedCredential: true,
+      resolvedBy: executed.viaCore ? 'core' : 'memory-fallback',
     },
   };
 }
 
-/**
- * POST /api/chat con credentialId: misma resolucion segura que /api/chat/credentials,
- * pero devolviendo el contrato DanteChatResponse que consume la UI.
- */
-export async function handleChatWithStoredCredential(request: Request, deps: CredentialHandlerDeps): Promise<HandlerResult> {
+/** POST /api/chat con credentialId: contrato ChatResponseLike para la UI. */
+export async function handleChatWithStoredCredential(
+  request: Request,
+  deps: CredentialHandlerDeps,
+): Promise<HandlerResult> {
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.result;
   return handleChatWithStoredCredentialFromBody(request, parsed.body, deps);
 }
 
-/**
- * Variante que recibe el body ya parseado: evita volver a leer el stream de la
- * peticion cuando el llamador (POST /api/chat) ya lo consumio para validar el esquema.
- * El request solo se usa para autenticacion (cabeceras).
- */
 export async function handleChatWithStoredCredentialFromBody(
   request: Request,
   body: Record<string, unknown>,
@@ -330,9 +516,6 @@ export async function handleChatWithStoredCredentialFromBody(
 ): Promise<HandlerResult> {
   const owner = await requireOwner(request, deps);
   if (!owner.ok) return owner.result;
-
-  const serviceResult = requireService(request, deps);
-  if (!serviceResult.ok) return serviceResult.result;
 
   const clientKey = rejectClientSuppliedApiKey(body);
   if (clientKey) return clientKey;
@@ -348,17 +531,17 @@ export async function handleChatWithStoredCredentialFromBody(
   }
 
   const requestedModel = typeof body.model === 'string' ? body.model : undefined;
-  const run = await runWithResolvedCredential(
+  const executed = await executeChatWithCredential(
+    request,
     owner.ownerId,
-    serviceResult.service,
-    deps.dispatch,
     credentialId,
     messages,
     requestedModel,
+    deps,
   );
-  if (!run.ok) return run.result;
+  if (!executed.ok) return executed.result;
 
-  if (run.execution.content.trim().length === 0) {
+  if (executed.response.message.content.trim().length === 0) {
     return fail(502, 'PROVIDER_ERROR', 'The provider returned an empty response.');
   }
 
@@ -367,46 +550,13 @@ export async function handleChatWithStoredCredentialFromBody(
     body: {
       message: {
         role: 'assistant',
-        content: run.execution.content,
+        content: executed.response.message.content,
         timestamp: new Date().toISOString(),
       },
       status: 'success',
-      correlationId: randomUUID(),
-      providerId: run.execution.providerId,
-      model: run.execution.model,
+      correlationId: executed.response.correlationId,
+      providerId: executed.response.providerId,
+      model: executed.response.model,
     },
   };
-}
-
-/**
- * DELETE /api/credentials/[credentialId]: elimina solo una credencial del
- * propietario autenticado. Ajena o inexistente -> mismo error generico.
- */
-export async function handleDeleteCredential(
-  request: Request,
-  credentialId: string,
-  deps: CredentialHandlerDeps,
-): Promise<HandlerResult> {
-  const clientKey = rejectClientKeyInRequest(request);
-  if (clientKey) return clientKey;
-
-  const owner = await requireOwner(request, deps);
-  if (!owner.ok) return owner.result;
-
-  const serviceResult = requireService(request, deps);
-  if (!serviceResult.ok) return serviceResult.result;
-
-  if (typeof credentialId !== 'string' || credentialId.trim().length === 0) {
-    return fail(400, 'INVALID_REQUEST', 'credentialId is required.');
-  }
-
-  try {
-    await serviceResult.service.deleteForOwner(credentialId, owner.ownerId);
-    return { status: 200, body: { deleted: true, credentialId } };
-  } catch (error) {
-    if (error instanceof CredentialNotFoundError) {
-      return fail(404, 'NOT_FOUND', 'Credential not found.');
-    }
-    return fail(500, 'INTERNAL_ERROR', 'Failed to delete credential.');
-  }
 }

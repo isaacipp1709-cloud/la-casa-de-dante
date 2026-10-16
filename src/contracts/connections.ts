@@ -85,3 +85,35 @@ export type AgentConnectionsResponse = z.infer<typeof AgentConnectionsResponseSc
 export type CasaConnection = z.infer<typeof CasaConnectionSchema>;
 export type ConnectionsPanel = z.infer<typeof ConnectionsPanelSchema>;
 export type ProviderToggleRequest = z.infer<typeof ProviderToggleRequestSchema>;
+
+/** Contratos del ciclo BYOK: La Casa solo ve metadatos, nunca la clave. */
+export const CredentialMetadataSchema = z.object({
+  credentialId: z.string().min(1),
+  providerId: z.string().min(1),
+  createdAt: z.string(),
+  status: z.literal("active"),
+});
+
+export const CredentialStorageSchema = z.enum(["durable", "temporary"]);
+
+export const CredentialListResponseSchema = z.object({
+  credentials: z.array(CredentialMetadataSchema),
+  storage: CredentialStorageSchema,
+});
+
+export const CredentialCreateResponseSchema = z.object({
+  saved: z.literal(true),
+  storage: CredentialStorageSchema,
+  credential: CredentialMetadataSchema,
+});
+
+export const CredentialDeleteResponseSchema = z.object({
+  deleted: z.literal(true),
+  credentialId: z.string().min(1),
+});
+
+export type CredentialMetadata = z.infer<typeof CredentialMetadataSchema>;
+export type CredentialStorage = z.infer<typeof CredentialStorageSchema>;
+export type CredentialListResponse = z.infer<typeof CredentialListResponseSchema>;
+export type CredentialCreateResponse = z.infer<typeof CredentialCreateResponseSchema>;
+export type CredentialDeleteResponse = z.infer<typeof CredentialDeleteResponseSchema>;

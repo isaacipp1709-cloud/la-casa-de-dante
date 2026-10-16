@@ -614,4 +614,67 @@ export class MockDanteProvider {
     };
   }
 
+  /** Credenciales BYOK en modo mock: viven solo en memoria (temporal). */
+  private readonly byokCredentials = new Map<
+    string,
+    { credentialId: string; ownerId: string; providerId: string; createdAt: string }
+  >();
+
+  createCredential(input: { ownerId: string; providerId: string; apiKey: string }) {
+    if (input.providerId !== 'gemini') {
+      throw new ValidationError({ providerId: ['Proveedor no habilitado para BYOK'] });
+    }
+    if (!input.apiKey || input.apiKey.trim().length === 0) {
+      throw new ValidationError({ apiKey: ['apiKey es requerido'] });
+    }
+    const credential = {
+      credentialId: `mock-cred-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      ownerId: input.ownerId,
+      providerId: input.providerId,
+      createdAt: new Date().toISOString(),
+    };
+    this.byokCredentials.set(credential.credentialId, credential);
+    return { storage: 'temporary' as const, credential: { ...credential, status: 'active' as const } };
+  }
+
+  listCredentials(ownerId: string) {
+    const credentials = Array.from(this.byokCredentials.values())
+      .filter((item) => item.ownerId === ownerId)
+      .map((item) => ({ ...item, status: 'active' as const }));
+    return { storage: 'temporary' as const, credentials };
+  }
+
+  deleteCredential(ownerId: string, credentialId: string) {
+    const found = this.byokCredentials.get(credentialId);
+    if (!found || found.ownerId !== ownerId) {
+      throw new ValidationError({ credentialId: ['Credencial no encontrada'] });
+    }
+    this.byokCredentials.delete(credentialId);
+    return { storage: 'temporary' as const, credentialId };
+  }
+
+  /** En modo mock nunca se simula un proveedor real: la respuesta se marca como fallback. */
+  async chatWithStoredCredential(input: {
+    ownerId: string;
+    credentialId: string;
+    messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
+    model?: string;
+  }) {
+    const found = this.byokCredentials.get(input.credentialId);
+    if (!found || found.ownerId !== input.ownerId) {
+      throw new ValidationError({ credentialId: ['Credencial no encontrada'] });
+    }
+    const lastUser = input.messages.filter((m) => m.role === 'user').pop();
+    const content = `[Fallback Mock] El Core no esta disponible: no se ejecuto ${found.providerId}. Consulta: ${lastUser?.content ?? ''}`.trim();
+    const response: DanteChatResponse = {
+      message: { role: 'assistant', content },
+      status: 'success',
+      correlationId: `mock-byok-${Date.now().toString(36)}`,
+      providerId: 'mock',
+    };
+    const parsed = DanteChatResponseSchema.safeParse(response);
+    if (!parsed.success) throw new ValidationError(parsed.error.format());
+    return parsed.data;
+  }
+
 }

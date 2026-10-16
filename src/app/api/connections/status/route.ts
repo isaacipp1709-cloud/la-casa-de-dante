@@ -7,19 +7,32 @@ import type { ConnectionsStatusResponse } from "@/contracts/connections";
 
 export const dynamic = "force-dynamic";
 
-/** Conteo de credenciales BYOK del usuario autenticado (nunca su contenido). */
+/** Conteo de credenciales BYOK del usuario (nunca su contenido). */
+function tally(credentials: Array<{ providerId: string }>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of credentials) {
+    counts[item.providerId] = (counts[item.providerId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * Las credenciales viven en Dante-AI-Core: el conteo se pide al Core con la
+ * identidad firmada. Si el Core no responde, se usa el fallback temporal local.
+ */
 async function countByokByProvider(request: NextRequest): Promise<Record<string, number>> {
   try {
     const owner = await resolveOwnerFromRequest(request);
     if (!owner.ok) return {};
-    const metadata = await createCredentialService(request).listMetadata(owner.ownerId);
-    const counts: Record<string, number> = {};
-    for (const item of metadata) {
-      counts[item.providerId] = (counts[item.providerId] ?? 0) + 1;
+
+    try {
+      const fromCore = await danteBridge.listCredentials(owner.ownerId);
+      return tally(fromCore.credentials);
+    } catch {
+      const local = await createCredentialService().listMetadata(owner.ownerId);
+      return tally(local);
     }
-    return counts;
   } catch {
-    // Sin configuracion de credenciales el panel sigue mostrando el resto.
     return {};
   }
 }

@@ -1,3 +1,4 @@
+import { ownerAssertionHeaders } from "@/lib/credentials/owner-assertion";
 import {
   DanteChatResponse,
   DanteNeuronsResponse,
@@ -23,10 +24,14 @@ import {
 import type {
   ConnectionsStatusResponse,
   AgentConnectionsResponse,
+  CredentialStorage,
 } from "@/contracts/connections";
 import {
   ConnectionsStatusResponseSchema,
   AgentConnectionsResponseSchema,
+  CredentialListResponseSchema,
+  CredentialCreateResponseSchema,
+  CredentialDeleteResponseSchema,
 } from "@/contracts/connections";
 import type { BridgeStatus, DanteBridgeState } from "@/contracts/dante";
 import { MockDanteProvider } from "./mock-provider";
@@ -35,6 +40,7 @@ import {
   chatWithDanteWithRetry,
   checkDanteHealth,
   fetchFromDanteCore,  postToDanteCore,
+  deleteFromDanteCore,
 } from "./client";
 import {
   AuditLogPort,
@@ -63,6 +69,10 @@ export interface DanteBridge {
   getConnectionsStatus(): Promise<ConnectionsStatusResponse>;
   toggleProviderConnection(providerId: string, enabled: boolean): Promise<ConnectionsStatusResponse>;
   getAvailableConnections(): Promise<AgentConnectionsResponse>;
+  createCredential(input: { ownerId: string; providerId: string; apiKey: string }): Promise<{ storage: CredentialStorage; credential: { credentialId: string; providerId: string; createdAt: string; status: "active" } }>;
+  listCredentials(ownerId: string): Promise<{ storage: CredentialStorage; credentials: Array<{ credentialId: string; providerId: string; createdAt: string; status: "active" }> }>;
+  deleteCredential(ownerId: string, credentialId: string): Promise<{ storage: CredentialStorage; credentialId: string }>;
+  chatWithStoredCredential(input: { ownerId: string; credentialId: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }>; model?: string; conversationId?: string; timezone?: string; locale?: string }): Promise<DanteChatResponse>;
 }
 
 export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
@@ -526,6 +536,110 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
       }
     }
     return this.provider.getAvailableConnections();
+  }
+
+  /** Crea una credencial BYOK en el Core (cifrada alli; nunca en La Casa). */
+  async createCredential(input: { ownerId: string; providerId: string; apiKey: string }) {
+    const assertion = ownerAssertionHeaders(input.ownerId);
+    if (Object.keys(assertion).length === 0) {
+      throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
+    }
+    const data = await postToDanteCore(
+      '/api/credentials',
+      { providerId: input.providerId, apiKey: input.apiKey },
+      8_000,
+      assertion,
+    );
+    const parsed = CredentialCreateResponseSchema.safeParse(data);
+    if (!parsed.success) throw new ValidationError(parsed.error.format());
+    return { storage: parsed.data.storage, credential: parsed.data.credential };
+  }
+
+  /** Lista solo metadatos del propietario; el Core aplica el aislamiento. */
+  async listCredentials(ownerId: string) {
+    const assertion = ownerAssertionHeaders(ownerId);
+    if (Object.keys(assertion).length === 0) {
+      throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
+    }
+    const data = await fetchFromDanteCore('/api/credentials', 8_000, assertion);
+    const parsed = CredentialListResponseSchema.safeParse(data);
+    if (!parsed.success) throw new ValidationError(parsed.error.format());
+    return { storage: parsed.data.storage, credentials: parsed.data.credentials };
+  }
+
+  /** Elimina una credencial propia en el Core. */
+  async deleteCredential(ownerId: string, credentialId: string) {
+    const assertion = ownerAssertionHeaders(ownerId);
+    if (Object.keys(assertion).length === 0) {
+      throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
+    }
+    const data = await deleteFromDanteCore(
+      `/api/credentials/${encodeURIComponent(credentialId)}`,
+      assertion,
+    );
+    const parsed = CredentialDeleteResponseSchema.safeParse(data);
+    if (!parsed.success) throw new ValidationError(parsed.error.format());
+    return { storage: 'durable' as CredentialStorage, credentialId: parsed.data.credentialId };
+  }
+
+  /** Ejecuta el chat con la credencial resuelta en el Core (nunca aqui). */
+  async chatWithStoredCredential(input: {
+    ownerId: string;
+    credentialId: string;
+    messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
+    model?: string;
+    conversationId?: string;
+    timezone?: string;
+    locale?: string;
+  }): Promise<DanteChatResponse> {
+    const assertion = ownerAssertionHeaders(input.ownerId);
+    if (Object.keys(assertion).length === 0) {
+      throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
+    }
+    const data = (await postToDanteCore(
+      '/api/chat',
+      {
+        messages: input.messages,
+        credentialId: input.credentialId,
+        model: input.model,
+      },
+      30_000,
+      {
+        ...assertion,
+        'X-User-Timezone': input.timezone || 'America/Santiago',
+        'X-User-Locale': input.locale || 'es-CL',
+        'X-Conversation-ID': input.conversationId || `byok-${Date.now()}`,
+      },
+    )) as {
+      id?: string;
+      model?: string;
+      conversationId?: string;
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      choices?: Array<{ message?: { role?: string; content?: string } }>;
+    };
+
+    const rawContent = data?.choices?.[0]?.message?.content ?? '';
+    const mapped: DanteChatResponse = {
+      message: {
+        role: (data?.choices?.[0]?.message?.role as 'assistant' | 'user' | 'system') || 'assistant',
+        content: rawContent,
+      },
+      status: 'success',
+      correlationId: data?.conversationId || data?.id || `byok-${Date.now()}`,
+      providerId: data?.model,
+      usage: data?.usage
+        ? {
+            promptTokens: data.usage.prompt_tokens ?? 0,
+            completionTokens: data.usage.completion_tokens ?? 0,
+            totalTokens: data.usage.total_tokens ?? 0,
+          }
+        : undefined,
+    };
+
+    const validated = DanteChatResponseSchema.safeParse(mapped);
+    if (!validated.success) throw new ValidationError(validated.error.format());
+    this.setStatus('CONNECTED');
+    return validated.data;
   }
 
 }

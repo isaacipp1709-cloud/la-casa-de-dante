@@ -128,7 +128,8 @@ export async function checkDanteHealth(
  */
 export async function fetchFromDanteCore(
   endpointPath: string,
-  timeoutMs: number = 8_000
+  timeoutMs: number = 8_000,
+  extraHeaders?: Record<string, string>
 ): Promise<unknown> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -139,6 +140,7 @@ export async function fetchFromDanteCore(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}`,
+        ...extraHeaders,
       },
       signal: controller.signal,
     });
@@ -166,7 +168,8 @@ export async function fetchFromDanteCore(
 export async function postToDanteCore(
   endpointPath: string,
   body: unknown,
-  timeoutMs: number = 8_000
+  timeoutMs: number = 8_000,
+  extraHeaders?: Record<string, string>
 ): Promise<unknown> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -177,6 +180,7 @@ export async function postToDanteCore(
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}`,
+        ...extraHeaders,
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -194,6 +198,36 @@ export async function postToDanteCore(
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('TIMEOUT');
     }
+    throw error;
+  }
+}
+
+/** DELETE autenticado al Core, con identidad firmada opcional. */
+export async function deleteFromDanteCore(
+  endpointPath: string,
+  extraHeaders?: Record<string, string>,
+  timeoutMs: number = 8_000
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${DANTE_CORE_URL}${endpointPath}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DANTE_CORE_TOKEN || ''}`,
+        ...extraHeaders,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`CORE_HTTP_${res.status}`);
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') throw new Error('TIMEOUT');
     throw error;
   }
 }
