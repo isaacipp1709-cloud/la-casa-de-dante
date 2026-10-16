@@ -222,17 +222,20 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     assert.ok(!serialized.includes('sk-client-should-be-ignored'), 'no se refleja la clave del cliente');
   });
 
-  it('responde NOT_CONFIGURED si el transporte al proveedor no esta configurado', async () => {
+  it('responde error interno acotado si el despachador no esta cableado (via defensiva)', async () => {
     const service = new CredentialService(MASTER_SECRET);
     const metadata = service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: 'sk-no-dispatch' });
     const deps = ownerDeps('user-a');
     deps.createService = () => service;
 
     const response = await handleChatWithCredential(
-      jsonRequest('http://local/api/chat/credentials', { credentialId: metadata.credentialId }),
+      jsonRequest('http://local/api/chat/credentials', {
+        credentialId: metadata.credentialId,
+        messages: [{ role: 'user', content: 'hola' }],
+      }),
       deps,
     );
-    assert.equal(response.status, 501);
-    assert.equal((response.body.error as Record<string, unknown>).code, 'NOT_CONFIGURED');
+    assert.equal(response.status, 500);
+    assert.equal((response.body.error as Record<string, unknown>).code, 'INTERNAL_ERROR');
   });
 });
