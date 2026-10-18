@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bóveda de Configuración Portátil · Dante AI</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: #121215;
+      --card-hover: #18181b;
+      --border: #27272a;
+      --border-focus: #10b981;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --primary-glow: rgba(16, 185, 129, 0.2);
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 940px;
+    }
+    header {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: #064e3b;
+      color: #34d399;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 18px;
+      border: 1px solid #047857;
+    }
+    .brand-text h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .badge-secure {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-family: monospace;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+      background: var(--card-bg);
+    }
+    .tab-btn.active {
+      color: #fff;
+      background: #27272a;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .form-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .form-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .tag-req { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .tag-opt { background: rgba(161, 161, 170, 0.15); color: #a1a1aa; border: 1px solid rgba(161, 161, 170, 0.3); }
+    .form-help {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-field {
+      width: 100%;
+      background: #09090b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 36px 9px 12px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: monospace;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+    .toggle-visibility-btn {
+      position: absolute;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .toggle-visibility-btn:hover { color: var(--text); }
+    .passphrase-box {
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 24px;
+      margin-bottom: 20px;
+    }
+    .passphrase-box h3 {
+      font-size: 14px;
+      color: #34d399;
+      margin-bottom: 6px;
+    }
+    .passphrase-box p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .btn {
+      background: var(--primary);
+      color: #09090b;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: #27272a;
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #3f3f46; }
+    .btn-block { width: 100%; justify-content: center; }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: #09090b;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: rgba(16, 185, 129, 0.03);
+    }
+    .dropzone-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+    .dropzone-text {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .dropzone-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    .alert {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+    .env-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+      margin-bottom: 20px;
+    }
+    .env-card {
+      background: #09090b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .env-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .env-card-title {
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .env-status-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .status-ok { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .status-warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .status-fail { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .env-card-details {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .fields-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+    .fields-table th, .fields-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .fields-table th {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .field-key {
+      font-family: monospace;
+      color: #38bdf8;
+    }
+    .field-hint {
+      color: var(--text-dim);
+      font-family: monospace;
+      font-size: 11px;
+    }
+    pre.code-preview {
+      background: #09090b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      color: #e4e4e7;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+    footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-icon">D</div>
+        <div class="brand-text">
+          <h1>Bóveda de Configuración Portátil · Dante</h1>
+          <p>Cifrado autenticado AES-256-GCM + scrypt en memoria local</p>
+        </div>
+      </div>
+      <div class="badge-secure">🔒 Loopback 127.0.0.1 Only</div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('pack')">Crear Bóveda Cifrada</button>
+      <button class="tab-btn" onclick="switchTab('unpack')">Desbloquear y Recuperar</button>
+    </div>
+
+    <!-- TAB 1: CREAR BOVEDA -->
+    <div id="tab-pack" class="tab-content active">
+      <div id="pack-alert" class="alert"></div>
+
+      <!-- SECCIÓN 1: INFRAESTRUCTURA -->
+      <div class="card">
+        <div class="card-title">1. Infraestructura y Conexiones Internas</div>
+        <div class="card-desc">Tokens de enlace interno entre Core y La Casa, base de datos Neon y secreto maestro.</div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DANTE_CORE_TOKEN</label>
+            <span class="form-tag tag-req">Requerido (Ambos)</span>
+          </div>
+          <div class="form-help">Token secreto compartido para autorizar peticiones de La Casa hacia el Core y firmar aserciones HMAC.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-DANTE_CORE_TOKEN" class="input-field" placeholder="Token secreto de 32+ caracteres">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-DANTE_CORE_TOKEN')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">CREDENTIAL_MASTER_SECRET</label>
+            <span class="form-tag tag-req">Requerido (Ambos)</span>
+          </div>
+          <div class="form-help">Clave maestra existente para el cifrado AES-256-GCM de credenciales en la base de datos del Core.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-CREDENTIAL_MASTER_SECRET" class="input-field" placeholder="Secreto maestro existente de 32+ caracteres">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-CREDENTIAL_MASTER_SECRET')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DATABASE_URL</label>
+            <span class="form-tag tag-opt">Requerido Prod / Opcional Dev</span>
+          </div>
+          <div class="form-help">Cadena de conexión PostgreSQL de Neon para persistir conversaciones y ajustes.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-DATABASE_URL" class="input-field" placeholder="postgresql://user:pass@ep-xyz.region.neon.tech/neondb?sslmode=require">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-DATABASE_URL')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">USE_DATABASE</label>
+            <span class="form-tag tag-opt">Por defecto: true</span>
+          </div>
+          <div class="form-help">Habilita ('true') la persistencia durable en Neon. En dev local sin DB puede dejarse en 'false'.</div>
+          <input type="text" id="field-USE_DATABASE" class="input-field" value="true">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DANTE_CORE_URL</label>
+            <span class="form-tag tag-opt">Por defecto dev: http://localhost:3001</span>
+          </div>
+          <div class="form-help">URL donde responde el Core (http://localhost:3001 en desarrollo o URL de Vercel en producción).</div>
+          <input type="text" id="field-DANTE_CORE_URL" class="input-field" value="http://localhost:3001">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DANTE_MODE</label>
+            <span class="form-tag tag-opt">Por defecto: local-core</span>
+          </div>
+          <div class="form-help">Modo de comunicación del bridge ('local-core' para dev o 'remote-core' para producción).</div>
+          <input type="text" id="field-DANTE_MODE" class="input-field" value="local-core">
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2: AUTENTICACIÓN -->
+      <div class="card">
+        <div class="card-title">2. Autenticación y Control de Propietario</div>
+        <div class="card-desc">Conexión con Supabase Auth y lista blanca para que solo Isaac pueda acceder a Dante.</div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">NEXT_PUBLIC_SUPABASE_URL</label>
+            <span class="form-tag tag-req">Requerido (Casa)</span>
+          </div>
+          <div class="form-help">URL de tu proyecto en Supabase (ej: https://izykkfqnuekihdgrydxr.supabase.co).</div>
+          <input type="text" id="field-NEXT_PUBLIC_SUPABASE_URL" class="input-field" placeholder="https://xyz.supabase.co">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">NEXT_PUBLIC_SUPABASE_ANON_KEY</label>
+            <span class="form-tag tag-req">Requerido (Casa)</span>
+          </div>
+          <div class="form-help">Clave anónima pública de Supabase para inicializar el cliente de autenticación.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-NEXT_PUBLIC_SUPABASE_ANON_KEY" class="input-field" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-NEXT_PUBLIC_SUPABASE_ANON_KEY')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DANTE_AUTHORIZED_OWNER_IDS</label>
+            <span class="form-tag tag-req">Requerido (Casa)</span>
+          </div>
+          <div class="form-help">Tu UUID de usuario en Supabase. Si aún no te has autenticado en Supabase, puedes dejarlo pendiente y agregarlo luego.</div>
+          <input type="text" id="field-DANTE_AUTHORIZED_OWNER_IDS" class="input-field" placeholder="Ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DANTE_ADMIN_OWNER_IDS</label>
+            <span class="form-tag tag-opt">Opcional</span>
+          </div>
+          <div class="form-help">UUIDs autorizados para operaciones administrativas (ej: alternar estado de proveedores en Core).</div>
+          <input type="text" id="field-DANTE_ADMIN_OWNER_IDS" class="input-field" placeholder="Igual a tu UUID de propietario">
+        </div>
+      </div>
+
+      <!-- SECCIÓN 3: PROVEEDORES DE IA -->
+      <div class="card">
+        <div class="card-title">3. Proveedores de Inteligencia Artificial</div>
+        <div class="card-desc">Claves de proveedores para inferencia y orquestación cognitiva.</div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">GOOGLE_AI_API_KEY</label>
+            <span class="form-tag tag-req">Requerido (Core)</span>
+          </div>
+          <div class="form-help">Clave API de Gemini obtenida en Google AI Studio para el orquestador principal.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-GOOGLE_AI_API_KEY" class="input-field" placeholder="AIzaSy...">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-GOOGLE_AI_API_KEY')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">DEFAULT_GEMINI_MODEL</label>
+            <span class="form-tag tag-opt">Por defecto: gemini-2.0-flash</span>
+          </div>
+          <div class="form-help">Modelo activo de Gemini (gemini-2.0-flash es el estándar activo recomendado).</div>
+          <input type="text" id="field-DEFAULT_GEMINI_MODEL" class="input-field" value="gemini-2.0-flash">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">GROQ_API_KEY</label>
+            <span class="form-tag tag-opt">Opcional / Pendiente</span>
+          </div>
+          <div class="form-help">Clave de API de Groq para inferencia ultrarrápida con modelos Llama.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-GROQ_API_KEY" class="input-field" placeholder="gsk_...">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-GROQ_API_KEY')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">OLLAMA_BASE_URL</label>
+            <span class="form-tag tag-opt">Opcional / Pendiente</span>
+          </div>
+          <div class="form-help">Dirección de Ollama local (ej: http://localhost:11434) para inferencia local offline.</div>
+          <input type="text" id="field-OLLAMA_BASE_URL" class="input-field" value="http://localhost:11434">
+        </div>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">HUGGING_FACE_API_KEY</label>
+            <span class="form-tag tag-opt">Opcional / Pendiente</span>
+          </div>
+          <div class="form-help">Token de Hugging Face para modelos especializados.</div>
+          <div class="input-wrapper">
+            <input type="password" id="field-HUGGING_FACE_API_KEY" class="input-field" placeholder="hf_...">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('field-HUGGING_FACE_API_KEY')">👁️</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAJA DE CONTRASEÑA DE CIFRADO -->
+      <div class="passphrase-box">
+        <h3>🔑 Contraseña de Desbloqueo de la Bóveda</h3>
+        <p>Esta contraseña es la ÚNICA llave para descifrar tu archivo en otro equipo. <strong>Nunca se guarda junto al archivo ni se almacena en el sistema.</strong> Elige una contraseña segura y recuérdala.</p>
+
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label">Contraseña de Cifrado</label>
+          </div>
+          <div class="input-wrapper">
+            <input type="password" id="pack-passphrase" class="input-field" placeholder="Introduce una contraseña segura (mínimo 10 caracteres)">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('pack-passphrase')">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <div class="form-label-row">
+            <label class="form-label">Confirmar Contraseña</label>
+          </div>
+          <div class="input-wrapper">
+            <input type="password" id="pack-passphrase-confirm" class="input-field" placeholder="Repite la contraseña para confirmar">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('pack-passphrase-confirm')">👁️</button>
+          </div>
+        </div>
+      </div>
+
+      <button id="pack-submit-btn" class="btn btn-block" onclick="submitPackVault()">
+        🔒 Generar y Descargar Bóveda Cifrada (.dantevault)
+      </button>
+    </div>
+
+    <!-- TAB 2: RECUPERAR BOVEDA -->
+    <div id="tab-unpack" class="tab-content">
+      <div id="unpack-alert" class="alert"></div>
+
+      <div class="card">
+        <div class="card-title">Cargar Archivo de Bóveda (.dantevault)</div>
+        <div class="card-desc">Selecciona tu archivo cifrado para inspeccionar su preparación o restaurar las variables en este equipo.</div>
+
+        <div id="dropzone" class="dropzone" onclick="document.getElementById('vault-file-input').click()">
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-text" id="dropzone-text">Arrastra tu archivo .dantevault aquí o haz clic para seleccionarlo</div>
+          <div class="dropzone-hint">El archivo permanece en tu memoria local y nunca se envía al exterior.</div>
+          <input type="file" id="vault-file-input" accept=".dantevault,.json,.enc,.vault" style="display: none;" onchange="handleFileSelected(event)">
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <div class="form-label-row">
+            <label class="form-label">Contraseña de Desbloqueo</label>
+          </div>
+          <div class="input-wrapper">
+            <input type="password" id="unpack-passphrase" class="input-field" placeholder="Contraseña usada al crear la bóveda">
+            <button type="button" class="toggle-visibility-btn" onclick="toggleVisibility('unpack-passphrase')">👁️</button>
+          </div>
+        </div>
+
+        <button id="unpack-inspect-btn" class="btn btn-block" onclick="submitInspectVault()">
+          🔓 Desbloquear e Inspeccionar Bóveda
+        </button>
+      </div>
+
+      <!-- RESULTADO DE INSPECCIÓN -->
+      <div id="unpack-result" style="display: none;">
+        <div class="card">
+          <div class="card-title">Auditoría de Preparación por Entorno</div>
+          <div class="card-desc">Comprobación de variables requeridas sin exponer valores secretos.</div>
+
+          <div class="env-grid" id="env-status-grid"></div>
+
+          <div style="margin-top: 16px;">
+            <div class="form-label" style="margin-bottom: 8px;">Estado de Variables Almacenadas:</div>
+            <table class="fields-table">
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Categoría</th>
+                  <th>Estado</th>
+                  <th>Detalle (Sin Secretos)</th>
+                </tr>
+              </thead>
+              <tbody id="fields-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- GENERADOR DE ENTORNO -->
+        <div class="card">
+          <div class="card-title">Preparar Configuración para Entorno</div>
+          <div class="card-desc">Genera el archivo .env.local correspondiente al componente y entorno que necesitas en este computador.</div>
+
+          <div class="form-group">
+            <label class="form-label" for="target-env-select">Selecciona el Destino:</label>
+            <select id="target-env-select" class="input-field" style="margin-top: 6px;" onchange="handleTargetEnvChange()">
+              <option value="casa-development">La Casa de Dante (Desarrollo Local -> la-casa-de-dante/.env.local)</option>
+              <option value="core-development">Dante-AI-Core (Desarrollo Local -> Dante-AI-Core/.env.local)</option>
+              <option value="casa-production">La Casa de Dante (Vercel Producción -> Formato clave/valor)</option>
+              <option value="core-production">Dante-AI-Core (Vercel Producción -> Formato clave/valor)</option>
+            </select>
+          </div>
+
+          <button class="btn btn-secondary" onclick="generateEnvPreview()">
+            ⚙️ Ver / Copiar Plantilla de Entorno
+          </button>
+          <button class="btn" style="margin-left: 8px;" onclick="writeEnvDirectly()">
+            💾 Escribir directamente a .env.local
+          </button>
+
+          <pre id="env-preview-code" class="code-preview" style="display: none;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>Dante Config Vault · Protección de Datos $0 Tier</div>
+      <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="shutdownServer()">
+        Cerrar Servidor Privado
+      </button>
+    </footer>
+  </div>
+
+  <script>
+    let currentVaultFileContent = null;
+    let cachedUnlockedData = null;
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      if (tab === 'pack') {
+        document.querySelector('.tabs button:nth-child(1)').classList.add('active');
+        document.getElementById('tab-pack').classList.add('active');
+      } else {
+        document.querySelector('.tabs button:nth-child(2)').classList.add('active');
+        document.getElementById('tab-unpack').classList.add('active');
+      }
+    }
+
+    function toggleVisibility(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.type = el.type === 'password' ? 'text' : 'password';
+    }
+
+    function showAlert(id, msg, type = 'error') {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = 'alert ' + (type === 'error' ? 'alert-error' : 'alert-success');
+      el.style.display = 'block';
+    }
+
+    function hideAlert(id) {
+      const el = document.getElementById(id);
+      el.style.display = 'none';
+    }
+
+    async function submitPackVault() {
+      hideAlert('pack-alert');
+      const pass = document.getElementById('pack-passphrase').value;
+      const passConfirm = document.getElementById('pack-passphrase-confirm').value;
+
+      if (!pass || pass.length < 8) {
+        showAlert('pack-alert', 'La contraseña de desbloqueo debe tener al menos 8 caracteres.');
+        return;
+      }
+      if (pass !== passConfirm) {
+        showAlert('pack-alert', 'Las contraseñas no coinciden. Por favor verifícalas.');
+        return;
+      }
+
+      const keys = [
+        'DANTE_CORE_TOKEN', 'CREDENTIAL_MASTER_SECRET', 'DATABASE_URL',
+        'USE_DATABASE', 'DANTE_CORE_URL', 'DANTE_MODE',
+        'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+        'DANTE_AUTHORIZED_OWNER_IDS', 'DANTE_ADMIN_OWNER_IDS',
+        'GOOGLE_AI_API_KEY', 'DEFAULT_GEMINI_MODEL', 'GROQ_API_KEY',
+        'OLLAMA_BASE_URL', 'HUGGING_FACE_API_KEY'
+      ];
+
+      const values = {};
+      for (const k of keys) {
+        const input = document.getElementById('field-' + k);
+        if (input && input.value.trim().length > 0) {
+          values[k] = input.value.trim();
+        }
+      }
+
+      const submitBtn = document.getElementById('pack-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '🔒 Cifrando bóveda con scrypt + AES-256-GCM...';
+
+      try {
+        const res = await fetch('/api/vault/pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values, passphrase: pass }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al empaquetar la bóveda.');
+        }
+
+        // Descargar archivo automáticamente
+        const blob = new Blob([JSON.stringify(data.vault, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dante-config-${new Date().toISOString().slice(0, 10)}.dantevault`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showAlert('pack-alert', '¡Bóveda cifrada generada y descargada exitosamente! Guarda este archivo en tu lugar seguro.', 'success');
+      } catch (err) {
+        showAlert('pack-alert', err.message || 'Error desconocido.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🔒 Generar y Descargar Bóveda Cifrada (.dantevault)';
+      }
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      document.getElementById('dropzone-text').textContent = 'Archivo seleccionado: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        currentVaultFileContent = e.target.result;
+      };
+      reader.readAsText(file);
+    }
+
+    // Drag and drop handlers
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        document.getElementById('vault-file-input').files = e.dataTransfer.files;
+        handleFileSelected({ target: { files: e.dataTransfer.files } });
+      }
+    });
+
+    async function submitInspectVault() {
+      hideAlert('unpack-alert');
+      if (!currentVaultFileContent) {
+        showAlert('unpack-alert', 'Por favor selecciona o arrastra un archivo de bóveda (.dantevault).');
+        return;
+      }
+      const pass = document.getElementById('unpack-passphrase').value;
+      if (!pass) {
+        showAlert('unpack-alert', 'Por favor introduce la contraseña de desbloqueo.');
+        return;
+      }
+
+      const btn = document.getElementById('unpack-inspect-btn');
+      btn.disabled = true;
+      btn.textContent = '🔓 Desbloqueando...';
+
+      try {
+        const res = await fetch('/api/vault/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vaultContent: currentVaultFileContent, passphrase: pass }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al desbloquear la bóveda.');
+        }
+
+        renderInspection(data.inspection);
+        showAlert('unpack-alert', '¡Bóveda desbloqueada con éxito! Autenticación criptográfica AES-256-GCM verificada.', 'success');
+      } catch (err) {
+        document.getElementById('unpack-result').style.display = 'none';
+        showAlert('unpack-alert', err.message || 'Error al desbloquear.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔓 Desbloquear e Inspeccionar Bóveda';
+      }
+    }
+
+    function renderInspection(inspection) {
+      document.getElementById('unpack-result').style.display = 'block';
+
+      // Render environment status grid
+      const grid = document.getElementById('env-status-grid');
+      grid.innerHTML = '';
+      for (const env of inspection.environments) {
+        const card = document.createElement('div');
+        card.className = 'env-card';
+        const badgeClass = env.ready ? 'status-ok' : (env.missingRequired.length > 0 ? 'status-fail' : 'status-warn');
+        const badgeText = env.ready ? '✓ Listo' : `Faltan ${env.missingRequired.length}`;
+        card.innerHTML = `
+          <div class="env-card-header">
+            <span class="env-card-title">${env.name}</span>
+            <span class="env-status-badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="env-card-details">
+            ${env.ready ? 'Todas las variables requeridas están listas.' : 'Faltan: ' + env.missingRequired.map(m => m.key).join(', ')}
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+
+      // Render table
+      const tbody = document.getElementById('fields-table-body');
+      tbody.innerHTML = '';
+      for (const field of inspection.fields) {
+        const tr = document.createElement('tr');
+        const statusBadge = field.isConfigured 
+          ? '<span style="color: #34d399; font-weight: 500;">✓ Configurado</span>'
+          : '<span style="color: #71717a;">Pendiente</span>';
+        tr.innerHTML = `
+          <td><span class="field-key">${field.key}</span></td>
+          <td style="color: var(--text-muted);">${field.category}</td>
+          <td>${statusBadge}</td>
+          <td><span class="field-hint">${field.hint}</span></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function generateEnvPreview() {
+      const pass = document.getElementById('unpack-passphrase').value;
+      const target = document.getElementById('target-env-select').value;
+      const previewEl = document.getElementById('env-preview-code');
+
+      try {
+        const res = await fetch('/api/vault/export-env', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vaultContent: currentVaultFileContent, passphrase: pass, targetId: target }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        previewEl.textContent = data.envContent;
+        previewEl.style.display = 'block';
+      } catch (err) {
+        showAlert('unpack-alert', err.message);
+      }
+    }
+
+    async function writeEnvDirectly() {
+      const pass = document.getElementById('unpack-passphrase').value;
+      const target = document.getElementById('target-env-select').value;
+      if (!confirm(`¿Deseas escribir el archivo .env.local para ${target}? Esto actualizará la configuración local del proyecto.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/vault/write-env', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vaultContent: currentVaultFileContent, passphrase: pass, targetId: target }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        showAlert('unpack-alert', `¡Archivo guardado con éxito en: ${data.writtenPath}!`, 'success');
+      } catch (err) {
+        showAlert('unpack-alert', err.message);
+      }
+    }
+
+    async function shutdownServer() {
+      if (confirm('¿Deseas cerrar el servidor local de la bóveda?')) {
+        try {
+          await fetch('/api/vault/shutdown', { method: 'POST' });
+        } catch {}
+        document.body.innerHTML = '<div style="text-align: center; margin-top: 100px; color: #a1a1aa;">El servidor privado de la bóveda se ha cerrado de forma segura.<br>Puedes cerrar esta pestaña del navegador.</div>';
+      }
+    }
+  </script>
+</body>
+</html>

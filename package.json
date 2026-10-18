@@ -11,7 +11,9 @@
     "verify:bridge": "tsx scripts/verify-bridge.ts",
     "verify:chat-route": "tsx scripts/verify-chat-route.ts",
     "verify:chat-ui": "tsx scripts/verify-chat-ui.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vault": "node tools/config-vault/cli.mjs serve",
+    "vault:test": "node --test tools/config-vault/tests/vault.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
