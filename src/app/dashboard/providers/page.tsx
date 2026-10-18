@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { CredentialManager } from "@/components/credentials/credential-manager";
@@ -21,7 +22,7 @@ export default function ProvidersPanel() {
 
   const fetchProviders = async () => {
     try {
-      const res = await fetch("/api/providers");
+      const res = await authorizedFetch("/api/providers");
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setProviders(data);
@@ -46,7 +47,7 @@ export default function ProvidersPanel() {
       category: formData.get("category"),
     };
     try {
-      await fetch("/api/providers", {
+      await authorizedFetch("/api/providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -61,7 +62,7 @@ export default function ProvidersPanel() {
   };
 
   const deleteProvider = async (id: string) => {
-    await fetch(`/api/providers?id=${id}`, { method: "DELETE" });
+    await authorizedFetch(`/api/providers?id=${id}`, { method: "DELETE" });
     setProviders((prev) => prev.filter((p) => p.id !== id));
   };
 

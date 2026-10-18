@@ -208,7 +208,19 @@ export function ChatShell() {
         throw new Error(getSafeErrorMessage(res.status, errorCode));
       }
 
-      const data = (await res.json()) as DanteChatResponse;
+      const data = (await res.json()) as DanteChatResponse & { persistence?: string };
+
+      if (data.persistence === 'unavailable') {
+        updateCurrentMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'system',
+            content: 'La respuesta se genero, pero no se pudo guardar la conversacion en el servidor.',
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      }
 
       if (data.status === 'error') {
         throw new Error('Error de validación o servidor.');

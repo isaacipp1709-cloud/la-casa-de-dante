@@ -1,10 +1,18 @@
-import { NextResponse } from "next/server";
+import { requireAuthorizedOwner } from '@/lib/auth/require-owner';
+import { NextRequest, NextResponse } from "next/server";
 import { danteBridge } from "@/lib/dante-bridge";
 import { DanteConversationsResponseSchema } from "@/contracts/dante";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const owner = await requireAuthorizedOwner(request);
+  if (!owner.ok) {
+    return NextResponse.json(
+      { error: { code: owner.code, message: owner.message } },
+      { status: owner.status },
+    );
+  }
   try {
     const conversations = await danteBridge.getConversations();
     const parsed = DanteConversationsResponseSchema.safeParse(conversations);

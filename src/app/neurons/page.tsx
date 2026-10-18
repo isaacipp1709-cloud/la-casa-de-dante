@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import React, { useState, useEffect, useMemo } from "react";
 import {
   BrainCircuit,
@@ -50,7 +51,7 @@ export default function NeuronsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("todos");
 
   useEffect(() => {
-    fetch("/api/neurons")
+    authorizedFetch("/api/neurons")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setNeurons(data);

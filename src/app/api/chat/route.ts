@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DanteChatRequestSchema, DanteChatResponseSchema } from "@/contracts/dante";
 import { danteBridge } from "@/lib/dante-bridge";
+import { requireAuthorizedOwner } from "@/lib/auth/require-owner";
 import { DanteBridgeError } from "@/lib/dante-bridge/errors";
 import {
   handleChatWithStoredCredentialFromBody,
@@ -11,6 +12,15 @@ import { credentialHandlerDeps } from "@/lib/services/credential-runtime";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  // La sesion del panel es obligatoria: sin identidad verificada no hay chat.
+  const owner = await requireAuthorizedOwner(request);
+  if (!owner.ok) {
+    return NextResponse.json(
+      { error: { code: owner.code, message: owner.message } },
+      { status: owner.status },
+    );
+  }
+
   try {
     let body: unknown;
     try {
@@ -45,8 +55,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(byok.body, { status: byok.status });
     }
 
-    // Sin credentialId: se mantiene el flujo existente via dante-bridge.
-    const bridgeResponse = await danteBridge.chat(parsedRequest.data);
+    // Sin credencial guardada no se usa ninguna clave de entorno ni mock:
+    // el chat interactivo exige una conexion de la boveda.
+    if (!parsedRequest.data.credentialId) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'CREDENTIAL_REQUIRED',
+            message: 'Selecciona una conexion guardada para conversar con Dante.',
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    // El resto de este bloque es inalcanzable con credentialId presente.
+    const bridgeResponse = await danteBridge.chat(parsedRequest.data, { verifiedOwnerId: owner.ownerId });
 
     const parsedResponse = DanteChatResponseSchema.safeParse(bridgeResponse);
     if (!parsedResponse.success) {

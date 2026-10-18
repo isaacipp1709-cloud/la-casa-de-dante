@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useEffect, useState } from "react";
 import { Signal, Wifi, WifiOff, FileText, ShieldCheck, Upload } from "lucide-react";
 import { ConnectionsPanel } from "@/components/connections/connections-panel";
@@ -66,8 +67,8 @@ export default function ConnectionsPage() {
   const fetchConnectionsAndDocs = async () => {
     try {
       const [connRes, docsRes] = await Promise.allSettled([
-        fetch("/api/connections"),
-        fetch("/api/connections?scope=documents"),
+        authorizedFetch("/api/connections"),
+        authorizedFetch("/api/connections?scope=documents"),
       ]);
       if (connRes.status === "fulfilled" && connRes.value.ok) {
         const data = await connRes.value.json();
@@ -96,7 +97,7 @@ export default function ConnectionsPage() {
     setFeedback(null);
 
     try {
-      const res = await fetch("/api/connections", {
+      const res = await authorizedFetch("/api/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, category, content }),

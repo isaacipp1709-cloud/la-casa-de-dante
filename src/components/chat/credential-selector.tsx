@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useEffect, useRef, useState } from "react";
 
 /** Vista publica de una credencial: solo metadatos, nunca la clave. */
@@ -72,7 +73,7 @@ export function CredentialSelector({ providerId, onCredentialChange, disabled = 
 
     const load = async () => {
       try {
-        const response = await fetch("/api/credentials", { cache: "no-store" });
+        const response = await authorizedFetch("/api/credentials", { cache: "no-store" });
         if (cancelled) return;
 
         if (response.status === 401) {

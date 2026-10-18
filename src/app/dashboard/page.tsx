@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { MessageSquare, BarChart2, Zap, Brain, ShieldCheck, ArrowUpRight } from "lucide-react";
@@ -55,10 +56,10 @@ export default function Dashboard() {
     const run = async () => {
       try {
         const [convRes, analRes, provRes, neurRes] = await Promise.allSettled([
-          fetch("/api/conversations"),
-          fetch("/api/analytics"),
-          fetch("/api/providers"),
-          fetch("/api/neurons"),
+          authorizedFetch("/api/conversations"),
+          authorizedFetch("/api/analytics"),
+          authorizedFetch("/api/providers"),
+          authorizedFetch("/api/neurons"),
         ]);
         if (convRes.status === "fulfilled" && convRes.value.ok) {
           const data = await convRes.value.json();

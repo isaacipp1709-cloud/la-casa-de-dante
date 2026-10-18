@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useEffect, useState } from "react";
 
 type ConnStatus = "online" | "unstable" | "offline" | "loading";
@@ -24,7 +25,7 @@ export function StatusBar() {
 
   const refresh = async () => {
     try {
-      const res = await fetch("/api/connections");
+      const res = await authorizedFetch("/api/connections");
       if (!res.ok) { setStatus("offline"); return; }
       const data: { id: string; status: string; details: string }[] = await res.json();
       const core = data.find((c) => c.id === "dante-core");

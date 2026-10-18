@@ -1,3 +1,4 @@
+import { requireAuthorizedOwner } from '@/lib/auth/require-owner';
 import { NextRequest, NextResponse } from "next/server";
 import { danteBridge } from "@/lib/dante-bridge";
 import {
@@ -9,6 +10,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const owner = await requireAuthorizedOwner(request);
+  if (!owner.ok) {
+    return NextResponse.json(
+      { error: { code: owner.code, message: owner.message } },
+      { status: owner.status },
+    );
+  }
   try {
     const scope = request.nextUrl.searchParams.get("scope");
     if (scope === "documents") {
@@ -43,6 +51,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const owner = await requireAuthorizedOwner(request);
+  if (!owner.ok) {
+    return NextResponse.json(
+      { error: { code: owner.code, message: owner.message } },
+      { status: owner.status },
+    );
+  }
   let rawBody: unknown;
   try {
     rawBody = await request.json();

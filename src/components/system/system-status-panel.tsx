@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useEffect, useState } from "react";
 import { Server, Activity, Database, Radio, ShieldCheck, Loader, Brain } from "lucide-react";
 
@@ -52,10 +53,10 @@ export function SystemStatusPanel() {
   const refresh = async () => {
     try {
       const [connRes, analyticsRes, provRes, neurRes] = await Promise.allSettled([
-        fetch("/api/connections"),
-        fetch("/api/analytics"),
-        fetch("/api/providers"),
-        fetch("/api/neurons"),
+        authorizedFetch("/api/connections"),
+        authorizedFetch("/api/analytics"),
+        authorizedFetch("/api/providers"),
+        authorizedFetch("/api/neurons"),
       ]);
 
       if (connRes.status === "fulfilled" && connRes.value.ok) {

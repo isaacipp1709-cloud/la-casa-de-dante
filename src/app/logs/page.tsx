@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import React, { useState, useEffect } from "react";
 import { TerminalSquare, AlertTriangle, Info, AlertCircle } from "lucide-react";
 
@@ -17,7 +18,7 @@ export default function LogsPage() {
   const [filterLevel, setFilterLevel] = useState<string>("all");
 
   useEffect(() => {
-    fetch("/api/logs")
+    authorizedFetch("/api/logs")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data.logs)) setLogs(data.logs);

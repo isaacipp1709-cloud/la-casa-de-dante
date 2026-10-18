@@ -1,5 +1,6 @@
 "use client";
 
+import { authorizedFetch } from "@/lib/auth/client-session";
 import { useState, useEffect } from "react";
 
 export interface ProviderOption {
@@ -28,7 +29,7 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
       setError(null);
       
       try {
-        const response = await fetch("/api/providers");
+        const response = await authorizedFetch("/api/providers");
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
@@ -41,6 +42,11 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
           } else {
             throw new Error("Unexpected response format");
           }
+        } else if (response.status === 401 || response.status === 403) {
+          // Sin sesion no se aparenta normalidad con un catalogo local.
+          setError("Inicia sesion para cargar los proveedores disponibles.");
+          setProviders([]);
+          return;
         } else {
           throw new Error("HTTP " + response.status + ": " + response.statusText);
         }

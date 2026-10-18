@@ -65,6 +65,7 @@ describe('Dante Bridge Resilience', () => {
   // Test 4: Estados: setStatus/getStatus funciona correctamente
   it('Estados: getStatus funciona correctamente y se actualiza', async () => {
     process.env.DANTE_MODE = 'local-core';
+    process.env.DANTE_CORE_TOKEN = 'bridge-token-de-prueba-suficientemente-largo';
     mock.method(global, 'fetch', async () => ({
       ok: true,
       json: async () => ({
@@ -79,7 +80,7 @@ describe('Dante Bridge Resilience', () => {
 
     await bridge.chat({
       messages: [{ role: 'user', content: 'hola' }],
-    });
+    }, { verifiedOwnerId: 'user-test' });
 
     assert.strictEqual(bridge.getStatus().state, 'CONNECTED');
     delete process.env.DANTE_MODE;
@@ -88,6 +89,7 @@ describe('Dante Bridge Resilience', () => {
   // Test 5: Intercepta [Fallback Mock] de Dante-AI-Core y sintetiza respuesta limpia sin filtrar [System Context]
   it('Intercepta [Fallback Mock] del Core y entrega síntesis cognitiva limpia', async () => {
     process.env.DANTE_MODE = 'local-core';
+    process.env.DANTE_CORE_TOKEN = 'bridge-token-de-prueba-suficientemente-largo';
     mock.method(global, 'fetch', async () => ({
       ok: true,
       json: async () => ({
@@ -109,7 +111,7 @@ describe('Dante Bridge Resilience', () => {
     const bridge = new DanteBridgeImpl();
     const res = await bridge.chat({
       messages: [{ role: 'user', content: 'hola , qué tal , qué puedes hacer?' }],
-    });
+    }, { verifiedOwnerId: 'user-test' });
 
     assert.strictEqual(res.status, 'success');
     assert.ok(!res.message.content.includes('[Fallback Mock]'));

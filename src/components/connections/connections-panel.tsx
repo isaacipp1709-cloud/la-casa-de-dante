@@ -199,7 +199,9 @@ export function ConnectionsPanel() {
                             disabled={busyId === connection.id}
                             className="text-[10px] font-mono px-2 py-1 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 transition-colors"
                           >
-                            {connection.status === "disabled" ? "Activar" : "Desactivar"}
+                            {connection.status === "disabled"
+                              ? `Activar proveedor ${connection.name}`
+                              : `Desactivar proveedor ${connection.name}`}
                           </button>
                         )}
                       </div>
@@ -216,7 +218,8 @@ export function ConnectionsPanel() {
 
           <p className="px-5 py-3 text-[11px] text-zinc-600 font-mono border-t border-zinc-800 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Solo se muestra estado y metadatos. Nunca claves, tokens ni URLs internas.
+            Interruptor por proveedor (no por credencial). Solo se muestra estado y metadatos:
+            nunca claves, tokens ni URLs internas. Desactivar no cancela operaciones ya iniciadas.
           </p>
         </>
       )}

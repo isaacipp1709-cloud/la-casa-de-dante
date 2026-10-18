@@ -1,5 +1,6 @@
 import { ownerAssertionHeaders } from "@/lib/credentials/owner-assertion";
 import { isCoreMode } from "./bridge-mode";
+import { buildCoreChatHeaders } from "./chat-headers";
 import {
   DanteChatResponse,
   DanteNeuronsResponse,
@@ -115,7 +116,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
     return isCoreMode();
   }
 
-  async chat(payload: unknown): Promise<DanteChatResponse> {
+  async chat(payload: unknown, options?: { verifiedOwnerId?: string }): Promise<DanteChatResponse> {
     const startTime = Date.now();
     const parsedRequest = DanteChatRequestSchema.safeParse(payload);
 
@@ -163,12 +164,15 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
           }))
         ];
 
-        const coreResponse = await chatWithDanteWithRetry(messages, {
-          'X-User-Timezone': ctx?.timezone || 'America/Santiago',
-          'X-User-Locale': ctx?.locale || 'es-CL',
-          'X-User-ID': parsedRequest.data.userId || '',
-          'X-Conversation-ID': conversationId,
+        // Identidad verificada en el servidor de La Casa; nunca la del navegador.
+        const coreHeaders = buildCoreChatHeaders({
+          verifiedOwnerId: String(options?.verifiedOwnerId ?? ''),
+          conversationId,
+          timezone: ctx?.timezone,
+          locale: ctx?.locale,
         });
+
+        const coreResponse = await chatWithDanteWithRetry(messages, coreHeaders);
 
         this.setStatus('CONNECTED');
 
