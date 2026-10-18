@@ -1,5 +1,11 @@
 # La Casa de Dante
 
+> 📌 **Estado de Rescate y Continuidad (2026-10-18):**  
+> Para revisar el estado de arquitectura, conexión a Neon y el procedimiento de recuperación en tu laptop, consulta el documento [PROJECT_CONTINUITY.md](./PROJECT_CONTINUITY.md) y la bitácora [docs/bitacoras/session-02.md](./docs/bitacoras/session-02.md).  
+> Rama activa de rescate: `rescue/isaac-2026-10-18`.
+
+---
+
 
 ## Gestión de Proveedores y Modelos de IA (PLANIFICADO - Incremento Funcional en Rama feature/providers-ia)
 

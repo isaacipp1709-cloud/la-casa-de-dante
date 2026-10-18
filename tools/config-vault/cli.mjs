@@ -16,6 +16,7 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { packVault, unlockVault } from './vault-crypto.mjs';
 import { sanitizeVaultPayload, inspectVault, generateEnv } from './vault-schema.mjs';
+import { executeAllReadOnlyChecks } from './read-checks.mjs';
 import { createVaultServer, DEFAULT_PORT } from './server.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +34,9 @@ Uso de Dante Config Vault CLI:
 
   node cli.mjs inspect --vault <archivo.dantevault>
     Desbloquea la bóveda y muestra la auditoría de preparación sin revelar secretos.
+
+  node cli.mjs check --vault <archivo.dantevault>
+    Ejecuta comprobaciones de solo lectura en memoria (Neon, Supabase, Servicios, Proveedores).
 
   node cli.mjs export --vault <archivo.dantevault> --target <id-entorno> [--output <archivo>]
     Exporta el contenido .env.local para el entorno elegido.
@@ -192,6 +196,86 @@ async function main() {
       process.exit(0);
     } catch (err) {
       console.error(`\nError al exportar: ${err.message}\n`);
+      process.exit(1);
+    }
+  }
+
+  // 5. CHECK (Comprobaciones de solo lectura en memoria)
+  if (command === 'check') {
+    const vaultPath = args.vault;
+    if (!vaultPath || !fs.existsSync(vaultPath)) {
+      console.error('Error: Debes especificar un archivo existente con --vault <archivo.dantevault>');
+      process.exit(1);
+    }
+
+    const vaultContent = fs.readFileSync(vaultPath, 'utf8');
+    const passphrase = args.passphrase || await promptHidden('Contraseña de desbloqueo: ');
+
+    try {
+      const unlocked = unlockVault(vaultContent, passphrase);
+      console.log('\n🔒 Desbloqueo exitoso. Ejecutando comprobaciones no destructivas en memoria (RAM)...');
+
+      const checks = await executeAllReadOnlyChecks(unlocked.values || {});
+
+      console.log(`\n================================================================`);
+      console.log(`  INFORME DE COMPROBACIONES DE SOLO LECTURA · DANTE AI`);
+      console.log(`  Timestamp: ${checks.timestamp}`);
+      console.log(`  Seguridad: Cero archivos escritos a disco. Secretos en RAM.`);
+      console.log(`================================================================\n`);
+
+      // Neon
+      console.log(`[Neon PostgreSQL]`);
+      if (checks.neon.status !== 'ERROR' && checks.neon.status !== 'SKIPPED') {
+        const isOp = checks.neon.isOperativo;
+        console.log(`  Estado:        ${isOp ? '✓ OPERATIVO' : '⚠️ BLOQUEO: ' + checks.neon.status}`);
+        console.log(`  Endpoint ID:   ${checks.neon.destination?.endpointId} (Base ID: ${checks.neon.destination?.baseEndpointId})`);
+        console.log(`  Tipo Host:     ${checks.neon.destination?.isPooled ? 'Con Pooler (-pooler activo)' : 'Conexión Directa (sin pooler)'} | Región: ${checks.neon.destination?.regionCloud}`);
+        console.log(`  Base de datos: ${checks.neon.database} (en URL: ${checks.neon.destination?.databaseInUrl}) | SSL: ${checks.neon.destination?.ssl}`);
+        if (checks.neon.destination?.verifiedMatch?.isFullyConfirmed) {
+          console.log(`  Verificación:  ✓ Coincide con Dante Ai Isaac / production / neondb (${checks.neon.destination.verifiedMatch.expectedEndpoint})`);
+        } else {
+          console.log(`  Verificación:  ⚠️ Endpoint en bóveda: ${checks.neon.destination?.baseEndpointId} (esperado: ep-quiet-forest-b571toev)`);
+        }
+        console.log(`  Esquema / Path: esquema: ${checks.neon.schema} | search_path: ${checks.neon.searchPath}`);
+        console.log(`  Esquemas:      [${(checks.neon.accessibleSchemas || []).join(', ')}]`);
+        console.log(`  Tablas:`);
+        for (const [tbl, info] of Object.entries(checks.neon.tables || {})) {
+          console.log(`    • ${tbl.padEnd(28)}: [${info.state}] - ${info.message}`);
+        }
+        if (checks.neon.blockingMessage) {
+          console.log(`  ⚠️ BLOQUEO CRÍTICO: ${checks.neon.blockingMessage}`);
+        }
+      } else {
+        console.log(`  Estado:        ${checks.neon.status}`);
+        console.log(`  Detalle:       ${checks.neon.error || checks.neon.message}`);
+      }
+
+      // Supabase
+      console.log(`\n[Supabase Auth]`);
+      if (checks.supabase.status === 'OK') {
+        console.log(`  Estado:        ✓ ACTIVO (GoTrue OK)`);
+        console.log(`  URL:           ${checks.supabase.projectUrl}`);
+        console.log(`  Auth GitHub:   ${checks.supabase.githubAuthEnabled ? '✓ Habilitado' : 'No detectado'}`);
+      } else {
+        console.log(`  Estado:        ${checks.supabase.status}`);
+        console.log(`  Detalle:       ${checks.supabase.error || checks.supabase.message}`);
+      }
+
+      // Servicios
+      console.log(`\n[Servicios HTTP Públicos]`);
+      console.log(`  Casa Prod:     ${checks.services.casaProduction.reachable ? '✓ ONLINE (HTTP ' + checks.services.casaProduction.status + ')' : '✗ OFFLINE (' + (checks.services.casaProduction.error || 'sin respuesta') + ')'}`);
+      console.log(`  Core Local:    ${checks.services.coreLocal.reachable ? '✓ ONLINE (HTTP ' + checks.services.coreLocal.status + ')' : 'DETENIDO (Normal si no se ha iniciado)'}`);
+
+      // Proveedores
+      console.log(`\n[Proveedores IA]`);
+      for (const p of checks.providers) {
+        console.log(`  • ${p.name.padEnd(20)}: [Clave: ${p.keyState}] -> ${p.status}`);
+      }
+
+      console.log(`\n✓ Comprobaciones finalizadas sin escribir ningún secreto a disco ni alterar la base de datos.\n`);
+      process.exit(0);
+    } catch (err) {
+      console.error(`\nError en comprobaciones: ${err.message}\n`);
       process.exit(1);
     }
   }

@@ -645,6 +645,58 @@
           </div>
         </div>
 
+        <!-- COMPROBACIONES DE SOLO LECTURA EN MEMORIA (RAM) -->
+        <div class="card" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.03);">
+          <div class="card-title" style="color: #34d399;">
+            🔍 Comprobaciones de Conexión de Solo Lectura (100% en Memoria RAM)
+          </div>
+          <div class="card-desc">
+            Prueba de forma no destructiva las conexiones reales a Neon PostgreSQL, Supabase Auth y el estado de proveedores, sin escribir archivos .env.local ni registrar secretos.
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <button id="run-checks-btn" class="btn" onclick="submitRunReadOnlyChecks()">
+              🚀 Ejecutar Comprobaciones de Solo Lectura
+            </button>
+            <span id="checks-loading-spinner" style="display: none; margin-left: 12px; font-size: 13px; color: var(--text-muted);">
+              ⏳ Ejecutando validaciones seguras en memoria...
+            </span>
+          </div>
+
+          <div id="read-checks-results" style="display: none;">
+            <!-- Grid de Componentes -->
+            <div class="env-grid" id="checks-cards-grid"></div>
+
+            <!-- Tabla Resumen Consolidada -->
+            <div style="margin-top: 20px;">
+              <div class="form-label" style="margin-bottom: 8px;">Informe Consolidado de Validación:</div>
+              <div style="overflow-x: auto;">
+                <table class="fields-table" id="checks-report-table">
+                  <thead>
+                    <tr>
+                      <th>Componente</th>
+                      <th>Comprobación Ejecutada</th>
+                      <th>Resultado Real</th>
+                      <th>Evidencia Sanitizada</th>
+                      <th>Bloqueo / Estado</th>
+                      <th>Siguiente Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="checks-report-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Visor de Respuesta Técnica Sanitizada -->
+            <div style="margin-top: 16px;">
+              <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="toggleChecksRawJson()">
+                📋 Ver Detalle JSON Sanitizado (Sin Secretos)
+              </button>
+              <pre id="checks-raw-json" class="code-preview" style="display: none; max-height: 240px; font-size: 11px;"></pre>
+            </div>
+          </div>
+        </div>
+
         <!-- GENERADOR DE ENTORNO -->
         <div class="card">
           <div class="card-title">Preparar Configuración para Entorno</div>
@@ -926,6 +978,228 @@
       } catch (err) {
         showAlert('unpack-alert', err.message);
       }
+    }
+
+    async function submitRunReadOnlyChecks() {
+      hideAlert('unpack-alert');
+      const pass = document.getElementById('unpack-passphrase').value;
+      if (!currentVaultFileContent || !pass) {
+        showAlert('unpack-alert', 'Debes cargar el archivo .dantevault y escribir la contraseña primero.');
+        return;
+      }
+
+      const btn = document.getElementById('run-checks-btn');
+      const spinner = document.getElementById('checks-loading-spinner');
+      btn.disabled = true;
+      spinner.style.display = 'inline';
+
+      try {
+        const res = await fetch('/api/vault/run-read-checks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vaultContent: currentVaultFileContent, passphrase: pass }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al ejecutar comprobaciones.');
+
+        renderReadOnlyChecks(data.checks);
+        showAlert('unpack-alert', '¡Comprobaciones de solo lectura finalizadas con éxito (100% en memoria)!', 'success');
+      } catch (err) {
+        showAlert('unpack-alert', 'Error en comprobaciones: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+      }
+    }
+
+    function renderReadOnlyChecks(checks) {
+      const container = document.getElementById('read-checks-results');
+      container.style.display = 'block';
+
+      // 1. Grid de tarjetas
+      const grid = document.getElementById('checks-cards-grid');
+      grid.innerHTML = '';
+
+      // Card Neon
+      const neon = checks.neon || {};
+      const neonCard = document.createElement('div');
+      neonCard.className = 'env-card';
+      const isNeonOperativo = Boolean(neon.isOperativo);
+      const isNeonConnected = neon.status !== 'ERROR' && neon.status !== 'SKIPPED';
+      const badgeClass = isNeonOperativo ? 'status-ok' : (isNeonConnected ? 'status-fail' : 'status-fail');
+      const badgeText = isNeonOperativo ? 'OPERATIVO' : (isNeonConnected ? 'BLOQUEO ESQUEMA' : neon.status);
+
+      const tConv = neon.tables?.conversations || {};
+      const tMsg = neon.tables?.messages || {};
+      const tCred = neon.tables?.user_provider_credentials || {};
+      const tSett = neon.tables?.provider_settings || {};
+
+      neonCard.innerHTML = `
+        <div class="env-card-header">
+          <span class="env-card-title">🐘 Neon PostgreSQL</span>
+          <span class="env-status-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div class="env-card-details">
+          ${isNeonConnected 
+            ? `Endpoint ID: <code>${neon.destination?.endpointId}</code><br>
+               Tipo: <b>${neon.destination?.isPooled ? 'Con Pooler (-pooler activo)' : 'Conexión Directa (sin pooler)'}</b> | Región: ${neon.destination?.regionCloud}<br>
+               Base: <b>${neon.database}</b> (en URL: ${neon.destination?.databaseInUrl}) | SSL: ${neon.destination?.ssl}<br>
+               ${neon.destination?.verifiedMatch?.isFullyConfirmed 
+                 ? `<div style="margin: 4px 0; padding: 4px 8px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 4px; color: #34d399; font-size: 11px;">✓ Destino Verificado: Coincide con Dante Ai Isaac / production (${neon.destination?.verifiedMatch?.expectedEndpoint})</div>`
+                 : `<div style="margin: 4px 0; padding: 4px 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px; color: #fbbf24; font-size: 11px;">⚠️ Endpoint en bóveda: ${neon.destination?.baseEndpointId} (esperado: ep-quiet-forest-b571toev)</div>`}
+               search_path: <code>${neon.searchPath}</code> | Esquemas: [${(neon.accessibleSchemas || []).join(', ')}]<br>
+               <hr style="border: 0; border-top: 1px solid var(--border); margin: 6px 0;">
+               • conversations: <b>${tConv.state || 'DESCONOCIDO'}</b> (${tConv.rowCount !== null ? tConv.rowCount + ' filas' : 'sin tabla'})<br>
+               • messages: <b>${tMsg.state || 'DESCONOCIDO'}</b> (${tMsg.rowCount !== null ? tMsg.rowCount + ' filas' : 'sin tabla'})<br>
+               • user_provider_credentials: <b>${tCred.state || 'DESCONOCIDO'}</b> (${tCred.rowCount !== null ? tCred.rowCount + ' filas' : 'sin tabla'})<br>
+               • provider_settings: <b>${tSett.state || 'DESCONOCIDO'}</b> (${tSett.rowCount !== null ? tSett.rowCount + ' filas' : 'sin tabla'})<br>
+               • conversations.owner_id: <b>${neon.conversationsSchema?.ownerIdColumn?.exists ? 'Presente' : 'NO EXISTE'}</b> (Índice: ${neon.conversationsSchema?.hasOwnerIndex ? 'Presente' : 'NO EXISTE'})
+               ${neon.blockingMessage ? `<div style="margin-top: 6px; padding: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #f87171;">⚠️ ${neon.blockingMessage}</div>` : ''}`
+            : (neon.error || neon.message || 'No conectado')}
+        </div>
+      `;
+      grid.appendChild(neonCard);
+
+      // Card Supabase
+      const supa = checks.supabase || {};
+      const supaCard = document.createElement('div');
+      supaCard.className = 'env-card';
+      const supaOk = supa.status === 'OK';
+      supaCard.innerHTML = `
+        <div class="env-card-header">
+          <span class="env-card-title">⚡ Supabase Auth</span>
+          <span class="env-status-badge ${supaOk ? 'status-ok' : (supa.status === 'SKIPPED' ? 'status-warn' : 'status-fail')}">${supa.status}</span>
+        </div>
+        <div class="env-card-details">
+          ${supaOk 
+            ? `GoTrue: <b>Activo</b><br>
+               GitHub Auth: ${supa.githubAuthEnabled ? '✓ Habilitado' : 'Deshabilitado/No detectado'}<br>
+               Host: ${supa.projectUrl}`
+            : (supa.error || supa.message || 'No alcanzable')}
+        </div>
+      `;
+      grid.appendChild(supaCard);
+
+      // Card Core / Casa Services
+      const srv = checks.services || {};
+      const srvCard = document.createElement('div');
+      srvCard.className = 'env-card';
+      const casaProdOk = srv.casaProduction?.reachable;
+      srvCard.innerHTML = `
+        <div class="env-card-header">
+          <span class="env-card-title">🌐 Servicios HTTP</span>
+          <span class="env-status-badge ${casaProdOk ? 'status-ok' : 'status-warn'}">Casa Prod: ${srv.casaProduction?.status || 'Offline'}</span>
+        </div>
+        <div class="env-card-details">
+          Casa Prod (/api/health): ${casaProdOk ? '✓ Respondiendo HTTP 200' : 'No responde'}<br>
+          Core Local (/api/health): ${srv.coreLocal?.reachable ? '✓ Activo' : 'Offline (normal si no está iniciado)'}
+        </div>
+      `;
+      grid.appendChild(srvCard);
+
+      // Card Proveedores IA
+      const provs = checks.providers || [];
+      const geminiProv = provs.find(p => p.providerId === 'gemini');
+      const provCard = document.createElement('div');
+      provCard.className = 'env-card';
+      const geminiConfigured = geminiProv?.keyConfigured;
+      provCard.innerHTML = `
+        <div class="env-card-header">
+          <span class="env-card-title">🤖 Proveedores IA</span>
+          <span class="env-status-badge ${geminiConfigured ? 'status-ok' : 'status-warn'}">Gemini: ${geminiProv?.keyState}</span>
+        </div>
+        <div class="env-card-details">
+          Gemini: Clave <b>${geminiProv?.keyState}</b> (Modelo: ${geminiProv?.activeModel})<br>
+          Estado: <i>${geminiProv?.status}</i><br>
+          Objetivo Multiproveedor: HuggingFace, Ollama, Groq, OpenRouter, NVIDIA en desarrollo/pendientes.
+        </div>
+      `;
+      grid.appendChild(provCard);
+
+      // 2. Tabla de reporte consolidado (Formato exacto solicitado)
+      const tbody = document.getElementById('checks-report-tbody');
+      tbody.innerHTML = '';
+
+      const rows = [
+        {
+          componente: 'Neon PostgreSQL',
+          comprobacion: 'Ping TCP/SSL, current_database(), search_path, esquemas y tablas',
+          resultado: isNeonOperativo ? 'CONECTADO Y OPERATIVO' : (isNeonConnected ? 'CONEXIÓN OK | ESQUEMA INCOMPLETO' : neon.status),
+          evidencia: isNeonConnected 
+            ? `Destino: ${neon.destination?.endpointId} (${neon.destination?.isPooled ? 'pooled' : 'directo'}). DB: ${neon.database}, search_path: ${neon.searchPath}. conversations: ${tConv.state}, messages: ${tMsg.state}, credentials: ${tCred.state} (${tCred.rowCount ?? '—'} filas), settings: ${tSett.state} (${tSett.rowCount ?? '—'} filas).` 
+            : (neon.error || neon.message),
+          bloqueo: isNeonOperativo ? 'NINGUNO' : (neon.blockingMessage || 'Fallo de conexión'),
+          siguiente: isNeonOperativo 
+            ? 'Habilitar USE_DATABASE=true en variables locales' 
+            : 'Revisar definición SQL de conversations + messages antes de aplicar migración 0003'
+        },
+        {
+          componente: 'Supabase Auth',
+          comprobacion: 'Consulta pública de salud/ajustes GoTrue (/auth/v1/settings)',
+          resultado: supa.status === 'OK' ? 'RESPONDIENDO OK' : supa.status,
+          evidencia: supa.status === 'OK'
+            ? `GoTrue activo en ${supa.projectUrl}. Proveedor GitHub: ${supa.githubAuthEnabled ? 'Habilitado' : 'No configurado'}`
+            : (supa.error || supa.message),
+          bloqueo: supa.status === 'OK' ? 'NINGUNO' : 'Supabase no alcanzable',
+          siguiente: 'Iniciar sesión con GitHub para registrar primer UUID en DANTE_AUTHORIZED_OWNER_IDS'
+        },
+        {
+          componente: 'Core Local',
+          comprobacion: 'GET /api/health en DANTE_CORE_URL',
+          resultado: srv.coreLocal?.reachable ? 'EN EJECUCIÓN' : 'DETENIDO (Normal si no se ha levantado)',
+          evidencia: srv.coreLocal?.reachable ? `HTTP ${srv.coreLocal.status}` : 'Sin conexión a http://localhost:3001',
+          bloqueo: 'NINGUNO (Desarrollo local)',
+          siguiente: 'Iniciar con `npm run dev` en Dante-AI-Core cuando se requiera'
+        },
+        {
+          componente: 'Casa Producción (Vercel)',
+          comprobacion: 'GET /api/health en la-casa-de-dante.vercel.app',
+          resultado: srv.casaProduction?.reachable ? 'RESPONDIENDO OK' : (srv.casaProduction?.status ? `HTTP ${srv.casaProduction.status}` : 'OFFLINE'),
+          evidencia: srv.casaProduction?.reachable ? `HTTP ${srv.casaProduction.status}` : (srv.casaProduction?.error || 'Sin respuesta'),
+          bloqueo: 'NINGUNO',
+          siguiente: 'Mantener sin cambios hasta que Isaac apruebe despliegue de rescue'
+        },
+        {
+          componente: 'Adaptador Gemini',
+          comprobacion: 'Análisis estático de adaptadores Core + Casa (sin coste de inferencia)',
+          resultado: geminiConfigured ? 'CLAVE CONFIGURADA (Inferencia pendiente)' : 'PENDIENTE CLAVE',
+          evidencia: `Clave: ${geminiProv?.keyState}. Modelo: ${geminiProv?.activeModel}. Core: byok-executor. Casa: chatWithGemini. Inferencia no ejecutada.`,
+          bloqueo: 'NINGUNO',
+          siguiente: 'Listo para primera consulta interactiva controlada tras resolver esquema'
+        },
+        {
+          componente: 'Otros Proveedores (HuggingFace, Ollama, Groq, OpenRouter, NVIDIA)',
+          comprobacion: 'Auditoría de adaptadores BYOK para objetivo multiproveedor',
+          resultado: 'PENDIENTES DE DESARROLLO',
+          evidencia: 'Groq: sin adapter. Ollama/HF: solo servidor Core. OpenRouter y NVIDIA: pendientes de desarrollo (no sustituidos por Gemini).',
+          bloqueo: 'No bloquea la puesta en marcha inicial con Gemini',
+          siguiente: 'Desarrollar contratos y adaptadores cliente en Casa en la fase multiproveedor'
+        }
+      ];
+
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        const isOk = r.resultado.includes('OPERATIVO') || (r.resultado.includes('OK') && !r.resultado.includes('BLOQUEO') && !r.resultado.includes('INCOMPLETO'));
+        const isBlocked = r.bloqueo !== 'NINGUNO' && !r.bloqueo.includes('No bloquea');
+        tr.innerHTML = `
+          <td><b>${r.componente}</b></td>
+          <td style="color: var(--text-dim);">${r.comprobacion}</td>
+          <td><span class="${isOk ? 'status-ok' : (isBlocked ? 'status-fail' : 'status-warn')}">${r.resultado}</span></td>
+          <td style="font-family: monospace; font-size: 11px;">${r.evidencia}</td>
+          <td><span style="${isBlocked ? 'color: #f87171; font-weight: 600;' : ''}">${r.bloqueo}</span></td>
+          <td>${r.siguiente}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      // 3. Raw JSON preview
+      document.getElementById('checks-raw-json').textContent = JSON.stringify(checks, null, 2);
+    }
+
+    function toggleChecksRawJson() {
+      const el = document.getElementById('checks-raw-json');
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
     }
 
     async function shutdownServer() {

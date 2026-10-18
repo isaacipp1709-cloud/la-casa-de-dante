@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { packVault, unlockVault } from './vault-crypto.mjs';
 import { sanitizeVaultPayload, inspectVault, generateEnv, TARGET_ENVIRONMENTS } from './vault-schema.mjs';
+import { executeAllReadOnlyChecks } from './read-checks.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,10 +25,28 @@ export function createVaultServer(options = {}) {
   const port = options.port || DEFAULT_PORT;
   const htmlPath = path.join(__dirname, 'ui', 'index.html');
 
-  // Determinar rutas base de los proyectos
-  // __dirname está en <la-casa-de-dante>/tools/config-vault
-  const casaRootDir = path.resolve(__dirname, '..', '..');
-  const coreRootDir = path.resolve(casaRootDir, '..', 'Dante-AI-Core');
+  // Determinar rutas base de los proyectos de forma dinámica y flexible
+  const resolveTargetDir = (component) => {
+    if (component === 'Casa') {
+      if (process.env.CASA_DIR && fs.existsSync(process.env.CASA_DIR)) return process.env.CASA_DIR;
+      const candidates = [
+        path.resolve(__dirname, '..', '..'),
+        path.resolve(__dirname, '..', '..', 'la-casa-de-dante'),
+        path.resolve(__dirname, '..', '..', '..', 'la-casa-de-dante'),
+      ];
+      return candidates.find((dir) => fs.existsSync(path.join(dir, 'package.json')) && (fs.existsSync(path.join(dir, 'src', 'app')) || dir.toLowerCase().includes('casa'))) || null;
+    }
+    if (component === 'Core') {
+      if (process.env.CORE_DIR && fs.existsSync(process.env.CORE_DIR)) return process.env.CORE_DIR;
+      const candidates = [
+        path.resolve(__dirname, '..', '..'),
+        path.resolve(__dirname, '..', '..', 'Dante-AI-Core'),
+        path.resolve(__dirname, '..', '..', '..', 'Dante-AI-Core'),
+      ];
+      return candidates.find((dir) => fs.existsSync(path.join(dir, 'package.json')) && (fs.existsSync(path.join(dir, 'src', 'core')) || dir.toLowerCase().includes('core'))) || null;
+    }
+    return null;
+  };
 
   const server = http.createServer(async (req, res) => {
     // 1. Guardia de Dirección IP: Solo conexiones loopback locales
@@ -123,6 +142,30 @@ export function createVaultServer(options = {}) {
       return;
     }
 
+    // POST /api/vault/run-read-checks -> Ejecutar comprobaciones de solo lectura en memoria
+    if (req.method === 'POST' && url.pathname === '/api/vault/run-read-checks') {
+      try {
+        const body = await readJsonBody();
+        const { vaultContent, passphrase } = body;
+
+        if (!passphrase) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Debes proporcionar la contraseña de desbloqueo.' }));
+          return;
+        }
+
+        const unlocked = unlockVault(vaultContent, passphrase);
+        const checks = await executeAllReadOnlyChecks(unlocked.values || {});
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, checks }));
+      } catch (err) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || 'Fallo de autenticación de la bóveda.' }));
+      }
+      return;
+    }
+
     // POST /api/vault/export-env -> Generar contenido .env.local
     if (req.method === 'POST' && url.pathname === '/api/vault/export-env') {
       try {
@@ -153,12 +196,10 @@ export function createVaultServer(options = {}) {
         const unlocked = unlockVault(vaultContent, passphrase);
         const envContent = generateEnv(unlocked, targetId);
 
-        let targetDir = null;
-        if (target.component === 'Casa') targetDir = casaRootDir;
-        else if (target.component === 'Core') targetDir = coreRootDir;
+        const targetDir = resolveTargetDir(target.component);
 
         if (!targetDir || !fs.existsSync(targetDir)) {
-          throw new Error(`Directorio del componente ${target.component} no encontrado en el sistema.`);
+          throw new Error(`Directorio del componente ${target.component} no encontrado en el sistema. Configure la variable ${target.component === 'Casa' ? 'CASA_DIR' : 'CORE_DIR'} o utilice la opción de copiar al portapapeles.`);
         }
 
         const targetFilePath = path.join(targetDir, '.env.local');
