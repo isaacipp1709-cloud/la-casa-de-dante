@@ -6,7 +6,7 @@ import { DanteProvidersResponseSchema } from '../src/contracts/dante';
 describe('CATALOGO REAL: /api/providers endpoint', () => {
   it('el endpoint devuelve proveedores con modelos', () => {
     const payload = [
-      { id: 'gemini', name: 'Google Gemini', category: 'razonamiento', is_active: true, usageToday: 6, dailyLimit: 1500, is_public: false, models: ['gemini-2.0-flash', 'gemini-1.5-pro'] },
+      { id: 'gemini', name: 'Google Gemini', category: 'razonamiento', is_active: true, usageToday: 6, dailyLimit: 1500, is_public: false, models: ['gemini-2.0-flash', 'gemini-2.5-flash'] },
       { id: 'groq', name: 'Groq', category: 'razonamiento', is_active: false, usageToday: 14, dailyLimit: 14400, is_public: false, models: ['llama3-8b-8192', 'llama3-70b-8192'] },
       { id: 'mock', name: 'Mock Local', category: 'deterministic-fallback', is_active: true, usageToday: 28, dailyLimit: 999999, is_public: true, models: ['mock-dante'] },
     ];

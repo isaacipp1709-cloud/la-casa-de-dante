@@ -50,7 +50,7 @@ export class MockDanteProvider {
       usageToday: 6,
       dailyLimit: 1500,
       is_public: false,
-      models: ["gemini-2.0-flash", "gemini-1.5-pro"],
+      models: ["gemini-2.0-flash", "gemini-2.5-flash"],
     },
     {
       id: "mock-local",

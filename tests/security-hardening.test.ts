@@ -127,7 +127,7 @@ describe('Integracion local Casa -> Core (handlers reales, transporte controlado
           routerEnabled: true,
           executor: async () => {
             executions += 1;
-            return { content: 'respuesta de Dante', model: 'gemini-1.5-flash' };
+            return { content: 'respuesta de Dante', model: 'gemini-2.0-flash' };
           },
         });
         if (turn.status !== 'ok') throw new Error('CORE_HTTP_403');

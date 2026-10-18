@@ -63,7 +63,7 @@ function fakeCore(options: { fail?: Error; credentialId?: string } = {}) {
         status: 'success',
         correlationId: 'corr-1',
         providerId: 'gemini',
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
       };
     },
   };
@@ -165,7 +165,7 @@ describe('Ciclo BYOK a traves de Dante-AI-Core', () => {
     );
     assert.equal(full.status, 200);
     assert.equal(full.body.providerId, 'gemini');
-    assert.equal(full.body.model, 'gemini-1.5-flash');
+    assert.equal(full.body.model, 'gemini-2.0-flash');
     assert.equal(JSON.stringify(full.body).includes(SECRET), false);
 
     assert.deepEqual(

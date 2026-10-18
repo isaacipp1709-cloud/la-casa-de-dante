@@ -161,14 +161,14 @@ describe('Chat con credentialId', () => {
       chatRequest({
         messages: [{ role: 'user', content: 'hola' }],
         credentialId: metadata.credentialId,
-        model: 'gemini-1.5-pro',
+        model: 'gemini-2.5-flash',
       }),
       depsFor('user-a', service, dispatch),
     );
 
     assert.equal(response.status, 200);
     assert.equal(response.body.providerId, 'gemini');
-    assert.equal(response.body.model, 'gemini-1.5-pro');
+    assert.equal(response.body.model, 'gemini-2.5-flash');
     assert.equal(response.body.status, 'success');
     assert.ok(typeof response.body.correlationId === 'string');
 
