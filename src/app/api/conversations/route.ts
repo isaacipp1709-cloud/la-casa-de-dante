@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     );
   }
   try {
-    const conversations = await danteBridge.getConversations();
+    const conversations = await danteBridge.getConversations(owner.ownerId);
     const parsed = DanteConversationsResponseSchema.safeParse(conversations);
 
     if (!parsed.success) {

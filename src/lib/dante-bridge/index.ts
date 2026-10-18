@@ -60,7 +60,7 @@ export interface DanteBridge {
   getHealth(): Promise<DanteHealthResponse>;
   getNeurons(): Promise<DanteNeuronsResponse>;
   getAnalytics(): Promise<DanteAnalytics>;
-  getConversations(): Promise<DanteConversationsResponse>;
+  getConversations(ownerId?: string): Promise<DanteConversationsResponse>;
   getLogs(): Promise<DanteLogsResponse>;
   getProviders(): Promise<DanteProvidersResponse>;
   addProvider(payload: unknown): Promise<DanteProvidersResponse>;
@@ -69,7 +69,7 @@ export interface DanteBridge {
   getIngestedDocuments(): Promise<DanteDocumentIngestionResponse>;
   ingestDocument(payload: unknown): Promise<DanteDocumentIngestionResponse>;
   getConnectionsStatus(): Promise<ConnectionsStatusResponse>;
-  toggleProviderConnection(providerId: string, enabled: boolean): Promise<ConnectionsStatusResponse>;
+  toggleProviderConnection(providerId: string, enabled: boolean, ownerId?: string): Promise<ConnectionsStatusResponse>;
   getAvailableConnections(): Promise<AgentConnectionsResponse>;
   createCredential(input: { ownerId: string; providerId: string; apiKey: string }): Promise<{ storage: CredentialStorage; credential: { credentialId: string; providerId: string; createdAt: string; status: "active" } }>;
   listCredentials(ownerId: string): Promise<{ storage: CredentialStorage; credentials: Array<{ credentialId: string; providerId: string; createdAt: string; status: "active" }> }>;
@@ -146,7 +146,8 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
         try {
           const rawHistory = await fetchFromDanteCore(
             `/api/conversations/${conversationId}/messages`,
-            3000
+            3000,
+            options?.verifiedOwnerId ? ownerAssertionHeaders(options.verifiedOwnerId) : undefined
           );
           if (Array.isArray(rawHistory)) {
             previousMessages = rawHistory;
@@ -347,10 +348,11 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
     return this.provider.getAnalytics();
   }
 
-  async getConversations(): Promise<DanteConversationsResponse> {
+  async getConversations(ownerId?: string): Promise<DanteConversationsResponse> {
     if (this.isLocalCoreMode()) {
       try {
-        const data = await fetchFromDanteCore('/api/conversations');
+        const assertion = ownerId ? ownerAssertionHeaders(ownerId) : undefined;
+        const data = await fetchFromDanteCore('/api/conversations', 8_000, assertion);
         const parsed = DanteConversationsResponseSchema.safeParse(data);
         if (parsed.success) {
           this.setStatus('CONNECTED');
@@ -510,10 +512,17 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
   async toggleProviderConnection(
     providerId: string,
     enabled: boolean,
+    ownerId?: string,
   ): Promise<ConnectionsStatusResponse> {
     if (this.isLocalCoreMode()) {
       try {
-        const data = await postToDanteCore('/api/connections/providers/toggle', { providerId, enabled });
+        const assertion = ownerId ? ownerAssertionHeaders(ownerId) : undefined;
+        const data = await postToDanteCore(
+          '/api/connections/providers/toggle',
+          { providerId, enabled },
+          8_000,
+          assertion,
+        );
         const parsed = ConnectionsStatusResponseSchema.safeParse(data);
         if (parsed.success) {
           this.setStatus('CONNECTED');

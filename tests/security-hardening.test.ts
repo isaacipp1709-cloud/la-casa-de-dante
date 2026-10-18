@@ -202,4 +202,60 @@ describe('Integracion local Casa -> Core (handlers reales, transporte controlado
     assert.equal(result.status, 200);
     assert.equal(executions, 0, 'el guardrail bloquea antes del proveedor');
   });
+
+  it('getConversations y toggleProviderConnection propagan la asercion firmada del propietario', async () => {
+    process.env.DANTE_CORE_TOKEN = TOKEN;
+    process.env.DANTE_MODE = 'local-core';
+    process.env.DANTE_CORE_URL = 'http://127.0.0.1:3001';
+
+    let capturedToggleHeaders: Record<string, string> | undefined;
+    let capturedConvHeaders: Record<string, string> | undefined;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/api/connections/providers/toggle')) {
+        capturedToggleHeaders = init?.headers as Record<string, string>;
+        return new Response(JSON.stringify({
+          mode: 'ready',
+          timestamp: new Date().toISOString(),
+          database: { connected: true, latencyMs: 5 },
+          providers: [{ id: 'gemini', name: 'Google Gemini', enabled: true, routable: true, configured: true, missingKeys: [] }],
+          auth: { configured: true, mode: 'token', details: 'OK' },
+          storage: 'durable',
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('/api/conversations')) {
+        capturedConvHeaders = init?.headers as Record<string, string>;
+        return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return originalFetch(input, init);
+    };
+
+    try {
+      const { danteBridge } = await import('../src/lib/dante-bridge');
+      await danteBridge.toggleProviderConnection('gemini', true, 'user-isaac');
+      assert.ok(capturedToggleHeaders?.[OWNER_ASSERTION_HEADER], 'toggle envia cabecera de asercion');
+      const toggleVerified = verifyOwnerAssertion({
+        assertion: capturedToggleHeaders[OWNER_ASSERTION_HEADER],
+        secret: TOKEN,
+      });
+      assert.equal(toggleVerified.ok, true);
+      if (toggleVerified.ok) assert.equal(toggleVerified.ownerId, 'user-isaac');
+
+      await danteBridge.getConversations('user-isaac');
+      assert.ok(capturedConvHeaders?.[OWNER_ASSERTION_HEADER], 'getConversations envia cabecera de asercion');
+      const convVerified = verifyOwnerAssertion({
+        assertion: capturedConvHeaders[OWNER_ASSERTION_HEADER],
+        secret: TOKEN,
+      });
+      assert.equal(convVerified.ok, true);
+      if (convVerified.ok) assert.equal(convVerified.ownerId, 'user-isaac');
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.DANTE_CORE_TOKEN;
+      delete process.env.DANTE_MODE;
+      delete process.env.DANTE_CORE_URL;
+    }
+  });
 });

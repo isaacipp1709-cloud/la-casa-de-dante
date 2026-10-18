@@ -38,7 +38,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const core = await danteBridge.toggleProviderConnection(parsed.data.providerId, parsed.data.enabled);
+    const core = await danteBridge.toggleProviderConnection(
+      parsed.data.providerId,
+      parsed.data.enabled,
+      owner.ownerId,
+    );
     const bridge = danteBridge.getStatus();
     const panel = composeConnectionsPanel({
       core,
