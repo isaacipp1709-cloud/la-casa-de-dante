@@ -126,7 +126,7 @@ describe("Fase B — Historial Real, Concurrencia y Contratos (Comportamiento Re
             status: "success",
             correlationId: String(body.conversationId),
             providerId: "gemini",
-            model: "gemini-2.0-flash",
+            model: "gemini-3.8-flash",
             persistence: "saved",
           },
           200,
@@ -964,7 +964,7 @@ describe("Fase B — Historial Real, Concurrencia y Contratos (Comportamiento Re
           return jsonResponse(
             {
               id: "core-msg-1",
-              model: "gemini-2.0-flash",
+              model: "gemini-3.8-flash",
               conversationId: capturedCoreHeaders["X-Conversation-ID"],
               choices: [{ message: { role: "assistant", content: "Respuesta persistencia degradada" } }],
               persistence: "unavailable",

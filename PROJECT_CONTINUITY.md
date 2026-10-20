@@ -1,7 +1,7 @@
 # La Casa de Dante — Continuidad del Proyecto y Estado de Rescate
 
-**Última Actualización:** 2026-10-18 (Cierre de Sesión y Traslado al Laptop de Isaac)  
-**Rama Activa de Rescate:** `rescue/isaac-2026-10-18`  
+**Última Actualización:** 2026-10-20 (Paso 1 Push Preview + Paso 2 Alineación Modelo Gemini Vigente `gemini-3.8-flash`)
+**Rama Activa de Rescate:** `rescue/isaac-2026-10-18`
 **Repositorio Privado de Configuración:** `https://isaacipp1709-cloud@github.com/isaacipp1709-cloud/Dante-Private-Config.git`
 
 ---
@@ -64,7 +64,7 @@ La Casa de Dante es la interfaz de usuario frontend y middleware de acceso de Da
    - El inicio de sesión real vía Supabase Auth (GitHub) debe ser completado por Isaac en el navegador.
    - El UUID de usuario resultante de Supabase debe registrarse en `DANTE_AUTHORIZED_OWNER_IDS`.
    - La persistencia integral E2E (turnos de chat almacenándose durablemente en Neon) se validará una vez aplicadas las migraciones y desplegados los servicios en Vercel.
-4. **Modelo Gemini Pendiente de Actualizar/Verificar:** El modelo configurado en los adaptadores requiere verificación de cuotas e inferencia real en la nube sin costo.
+4. **Modelo Gemini Vigente Alineado (`gemini-3.8-flash`):** Se retiró `gemini-2.0-flash` (dado de baja el 1 de junio de 2026) y `gemini-2.5-flash` (restringido para proyectos nuevos) del recorrido efectivo de chat y catálogos, unificando `DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash'` y `ALLOWED_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite']` (ambos GA estables con nivel gratuito estándar documentado en Google Gemini API) en Core y Casa. Los overrides obsoletos se rechazan explícitamente con HTTP 400 antes de invocar al proveedor. Queda pendiente la comprobación de disponibilidad e inferencia real con la clave del proyecto de Isaac.
 5. **OpenRouter y NVIDIA NIM:** Su presencia en los selectores de la interfaz de usuario, contratos Zod y catálogo estático refleja la arquitectura multimodelo planificada, pero **NO equivalen a adaptadores cliente implementados en La Casa** (únicamente Gemini tiene adaptador activo en esta fase).
 
 ---
@@ -171,3 +171,21 @@ Resolver las fallas de continuidad del hilo de conversación y la pérdida del e
    - Verificadores `verify:bridge`, `verify:chat-route` y `verify:chat-ui` en Código 0.
    - `npm run typecheck`, `npm run lint`, `npm run build` y `git diff --check` en Código 0.
    - Documentación detallada en `docs/bitacoras/session-04.md`.
+
+---
+
+## 9. Paso 1 (Push Acotado y Preview) y Paso 2 (Modelo Gemini Vigente `gemini-3.8-flash`) — 2026-10-20
+
+### Paso 1: Respaldo Remoto y Preview de `la-casa-de-dante`
+- Se publicaron por *fast-forward* hacia `origin/rescue/isaac-2026-10-18` los commits `d2440810b40bba17c3c7f53bfa13e58b6d159f3c` y `fa037f642290f013cd5eaac9a9a83e33b5a4f7bd`.
+- Vercel generó el deployment Preview `https://la-casa-de-dante-9qocwfob1-isaacipp1709-cloud.vercel.app` (`state: success`, protegido tras Vercel Authentication SSO).
+
+### Paso 2: Alineación de Modelo Gemini Vigente y de Costo Cero
+- **Evidencia Oficial (`gemini-api-guides/models.md`, `deprecations.md`, `pricing.md`):**
+  - `gemini-2.0-flash` y `gemini-2.0-flash-lite` fueron dados de baja el 1 de junio de 2026.
+  - `gemini-2.5-flash` tiene acceso limitado a cuentas históricas; Google recomienda explícitamente `gemini-3.8-flash` y `gemini-3.5-flash-lite` para proyectos nuevos.
+  - `gemini-3.8-flash` (GA estable, 2026-09-02) y `gemini-3.5-flash-lite` (GA estable, 2026-07-21) no tienen fecha de retiro anunciada y cuentan con nivel gratuito estándar (`Free of charge` en tokens de entrada y salida).
+- **Alineación en `la-casa-de-dante` y `Dante-AI-Core`:**
+  - Constante unificada `DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash'` y catálogo `ALLOWED_GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite']` compartidos entre `src/lib/providers/gemini.ts`, `src/app/api/providers/route.ts`, `src/components/chat/provider-selector.tsx`, `src/lib/dante-bridge/mock-provider.ts` y `src/lib/services/credential-handlers.ts` (así como `byok-executor.ts`, `byok-turn.ts` y `providers/gemini.ts` en `Dante-AI-Core`).
+  - Rechazo explícito (`400 INVALID_REQUEST` / `INVALID_MODEL`) de cualquier override obsoleto sin aceptarlo silenciosamente ni invocar al proveedor.
+  - Detalle completo en `docs/bitacoras/session-05.md`.

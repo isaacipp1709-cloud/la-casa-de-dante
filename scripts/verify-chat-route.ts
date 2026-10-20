@@ -102,7 +102,7 @@ async function runTests() {
         status: 200,
         json: async () => ({
           id: "route-mock-msg-1",
-          model: "gemini-2.0-flash",
+          model: "gemini-3.8-flash",
           conversationId: "route-session-123",
           choices: [
             {

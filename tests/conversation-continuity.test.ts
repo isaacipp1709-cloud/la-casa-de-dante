@@ -45,7 +45,7 @@ function createCapturingCore(options: {
         status: 'success',
         correlationId: input.conversationId || 'corr-generated',
         providerId: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.8-flash',
         persistence: options.persistence as any,
       };
     },
@@ -322,7 +322,7 @@ describe('Continuidad y Estado de Persistencia del Chat BYOK', () => {
           status: 200,
           json: async () => ({
             id: 'resp-uuid-1',
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3.8-flash',
             conversationId: 'thread-bridge-test-1',
             choices: [{ message: { role: 'assistant', content: 'Respuesta Bridge' } }],
             persistence: 'saved',
@@ -375,7 +375,7 @@ describe('Continuidad y Estado de Persistencia del Chat BYOK', () => {
           status: 200,
           json: async () => ({
             id: 'resp-uuid-auto',
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3.8-flash',
             choices: [{ message: { role: 'assistant', content: 'Respuesta Bridge' } }],
             persistence: 'unavailable',
           }),
@@ -435,7 +435,7 @@ describe('Continuidad y Estado de Persistencia del Chat BYOK', () => {
           status: 200,
           json: async () => ({
             id: 'resp-uuid-3',
-            model: 'gemini-2.0-flash',
+            model: 'gemini-3.8-flash',
             choices: [{ message: { role: 'assistant', content: 'Respuesta Bridge' } }],
             persistence: 'fake_persistence_status',
           }),

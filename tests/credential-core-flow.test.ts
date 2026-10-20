@@ -63,7 +63,7 @@ function fakeCore(options: { fail?: Error; credentialId?: string } = {}) {
         status: 'success',
         correlationId: 'corr-1',
         providerId: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: input.model || 'gemini-3.8-flash',
       };
     },
   };
@@ -160,13 +160,22 @@ describe('Ciclo BYOK a traves de Dante-AI-Core', () => {
 
     const full = await handleChatWithStoredCredentialFromBody(
       jsonRequest('http://local/api/chat'),
-      { credentialId: 'core-cred-1', messages: [{ role: 'user', content: 'hola' }], model: 'gemini-2.0-flash' },
+      { credentialId: 'core-cred-1', messages: [{ role: 'user', content: 'hola' }], model: 'gemini-3.8-flash' },
       depsA,
     );
     assert.equal(full.status, 200);
     assert.equal(full.body.providerId, 'gemini');
-    assert.equal(full.body.model, 'gemini-2.0-flash');
+    assert.equal(full.body.model, 'gemini-3.8-flash');
     assert.equal(JSON.stringify(full.body).includes(SECRET), false);
+
+    // Un override obsoleto (p. ej. gemini-2.0-flash) se rechaza antes de tocar el Core
+    const rejectedObsolete = await handleChatWithStoredCredentialFromBody(
+      jsonRequest('http://local/api/chat'),
+      { credentialId: 'core-cred-1', messages: [{ role: 'user', content: 'hola' }], model: 'gemini-2.0-flash' },
+      depsA,
+    );
+    assert.equal(rejectedObsolete.status, 400);
+    assert.equal((rejectedObsolete.body.error as Record<string, unknown>).code, 'INVALID_REQUEST');
 
     assert.deepEqual(
       calls.filter((c) => c.operation === 'chat').map((c) => [c.ownerId, c.credentialId]),

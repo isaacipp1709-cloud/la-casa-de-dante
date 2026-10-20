@@ -31,6 +31,7 @@ import type {
   AgentConnectionsResponse,
 } from "@/contracts/connections";
 import { buildMockCoreConnections } from "@/lib/connections/mock-connections";
+import { ALLOWED_GEMINI_MODELS } from "@/lib/providers/gemini";
 
 export class MockDanteProvider {
   private providers: DanteProvidersResponse = [
@@ -46,13 +47,13 @@ export class MockDanteProvider {
     },
     {
       id: "gemini-flash",
-      name: "Google Gemini 2.0 Flash",
+      name: "Google Gemini 3.8 Flash",
       category: "llm-multimodal",
       is_active: true,
       usageToday: 6,
       dailyLimit: 1500,
       is_public: false,
-      models: ["gemini-2.0-flash", "gemini-2.5-flash"],
+      models: [...ALLOWED_GEMINI_MODELS],
     },
     {
       id: "mock-local",

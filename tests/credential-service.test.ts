@@ -71,7 +71,7 @@ describe('BYOK: endpoints y aislamiento por propietario', () => {
     const secret = 'sk-never-return-this-value';
     const deps = ownerDeps('user-a');
     const response = await handleSaveCredential(
-      jsonRequest('http://local/api/credentials', { providerId: 'gemini', apiKey: secret, model: 'gemini-2.0-flash' }),
+      jsonRequest('http://local/api/credentials', { providerId: 'gemini', apiKey: secret, model: 'gemini-3.8-flash' }),
       deps,
     );
 
@@ -219,7 +219,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     const response = await handleChatWithCredential(
       jsonRequest('http://local/api/chat/credentials', {
         credentialId: metadata.credentialId,
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.8-flash',
         messages: [{ role: 'user', content: 'hola', apiKey: 'sk-injected' }],
       }),
       deps,
@@ -230,7 +230,7 @@ describe('BYOK: chat usa credentialId y no la clave', () => {
     // La clave usada es la guardada, no la del cliente
     assert.equal(captured[0].apiKey, secret);
     assert.equal(captured[0].providerId, 'gemini');
-    assert.equal(captured[0].model, 'gemini-2.0-flash');
+    assert.equal(captured[0].model, 'gemini-3.8-flash');
     // Los mensajes solo llevan rol y contenido
     assert.deepEqual(captured[0].messages, [{ role: 'user', content: 'hola' }]);
     // La respuesta nunca contiene la clave

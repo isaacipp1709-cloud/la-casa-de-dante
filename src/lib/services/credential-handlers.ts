@@ -18,6 +18,7 @@ import {
 } from './provider-errors';
 import type { ProviderDispatch, ProviderRole } from './provider-dispatch';
 import type { CredentialMetadata, CredentialStorage } from '../../contracts/connections';
+import { InvalidGeminiModelError, resolveGeminiModel } from '../providers/gemini';
 
 /** Contrato minimo de respuesta de chat que La Casa consume del Core. */
 export interface ChatResponseLike {
@@ -418,16 +419,28 @@ export async function runWithResolvedCredential(
     return { ok: false, result: fail(500, 'INTERNAL_ERROR', 'Provider dispatch is unavailable.') };
   }
 
+  let effectiveModel = modelOverride;
+  if (resolved.providerId === 'gemini') {
+    try {
+      effectiveModel = resolveGeminiModel(modelOverride);
+    } catch (error) {
+      if (error instanceof InvalidGeminiModelError) {
+        return { ok: false, result: fail(400, 'INVALID_REQUEST', error.message) };
+      }
+      throw error;
+    }
+  }
+
   try {
     const result = await dispatch({
       providerId: resolved.providerId,
-      model: modelOverride,
+      model: effectiveModel,
       apiKey: resolved.apiKey,
       messages,
     });
     return {
       ok: true,
-      execution: { content: result.content, providerId: resolved.providerId, model: modelOverride },
+      execution: { content: result.content, providerId: resolved.providerId, model: effectiveModel },
     };
   } catch (error) {
     return { ok: false, result: mapProviderFailure(error) };
@@ -450,8 +463,20 @@ async function executeChatWithCredential(
   | { ok: true; response: ChatResponseLike; viaCore: boolean }
   | { ok: false; result: HandlerResult }
 > {
+  let effectiveModel = model;
+  if (typeof model === 'string' && model.trim().length > 0) {
+    try {
+      effectiveModel = resolveGeminiModel(model);
+    } catch (error) {
+      if (error instanceof InvalidGeminiModelError) {
+        return { ok: false, result: fail(400, 'INVALID_REQUEST', error.message) };
+      }
+      throw error;
+    }
+  }
+
   const viaCore = await tryCore(deps, (core) =>
-    core.chatWithStoredCredential({ ownerId, credentialId, messages, model, conversationId }),
+    core.chatWithStoredCredential({ ownerId, credentialId, messages, model: effectiveModel, conversationId }),
   );
   if (viaCore) {
     if (!viaCore.ok) return { ok: false, result: viaCore.result };
@@ -487,7 +512,7 @@ async function executeChatWithCredential(
     deps.dispatch,
     credentialId,
     messages,
-    model,
+    effectiveModel,
   );
   if (!run.ok) return { ok: false, result: run.result };
 

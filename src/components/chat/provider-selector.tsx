@@ -1,6 +1,7 @@
 "use client";
 
 import { authorizedFetch } from "@/lib/auth/client-session";
+import { ALLOWED_GEMINI_MODELS } from "@/lib/providers/gemini";
 import { useState, useEffect } from "react";
 
 export interface ProviderOption {
@@ -57,7 +58,7 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
         // Fall back to static mock catalog - explicitly marked as unverified
         setProviders([
           { id: "groq", name: "Groq", category: "razonamiento", models: ["llama3-8b-8192"] },
-          { id: "gemini", name: "Google Gemini", category: "razonamiento", models: ["gemini-2.0-flash"] },
+          { id: "gemini", name: "Google Gemini", category: "razonamiento", models: [...ALLOWED_GEMINI_MODELS] },
           { id: "ollama", name: "Ollama Local", category: "local", models: ["llama3"] },
           { id: "mock", name: "Mock Local", category: "mock", models: ["mock-dante"] }
         ]);

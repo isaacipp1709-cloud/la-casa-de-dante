@@ -6,6 +6,7 @@ import {
   DanteProviderCreateRequestSchema,
 } from "@/contracts/dante";
 import { ValidationError } from "@/lib/dante-bridge/errors";
+import { ALLOWED_GEMINI_MODELS } from "@/lib/providers/gemini";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const providersWithModels = providers.map((provider) => {
       const modelMap: Record<string, string[]> = {
-        'gemini': ['gemini-2.0-flash', 'gemini-2.5-flash'],
+        'gemini': [...ALLOWED_GEMINI_MODELS],
         'groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
         'ollama': ['llama3', 'mistral', 'phi3'],
         'mock': ['mock-dante'],

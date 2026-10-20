@@ -57,7 +57,7 @@ describe('BYOK: resolucion de credencial hasta el proveedor', () => {
     const response = await handleChatWithCredential(
       jsonRequest({
         credentialId: metadata.credentialId,
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.8-flash',
         messages: [{ role: 'user', content: 'hola' }],
       }),
       depsFor('user-a', service, dispatch),
@@ -70,7 +70,7 @@ describe('BYOK: resolucion de credencial hasta el proveedor', () => {
     assert.equal(captured.length, 1);
     assert.equal(captured[0].apiKey, SECRET, 'la clave descifrada llega al adaptador');
     assert.equal(captured[0].providerId, 'gemini');
-    assert.equal(captured[0].model, 'gemini-2.0-flash');
+    assert.equal(captured[0].model, 'gemini-3.8-flash');
     assert.deepEqual(captured[0].messages, [{ role: 'user', content: 'hola' }]);
   });
 

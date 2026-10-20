@@ -70,7 +70,7 @@ describe('Chat con credentialId', () => {
       chatRequest({
         messages: [{ role: 'user', content: 'hola' }],
         credentialId: metadata.credentialId,
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.8-flash',
       }),
       depsFor('user-a', service, dispatch),
     );
@@ -79,7 +79,7 @@ describe('Chat con credentialId', () => {
     assert.equal(captured.length, 1, 'el adaptador gemini fue invocado');
     assert.equal(captured[0].apiKey, SECRET, 'recibe la clave descifrada de su propia credencial');
     assert.equal(captured[0].providerId, 'gemini');
-    assert.equal(captured[0].model, 'gemini-2.0-flash');
+    assert.equal(captured[0].model, 'gemini-3.8-flash');
   });
 
   it('3. rechaza la credencial de otro usuario con el mismo error generico', async () => {
@@ -161,14 +161,14 @@ describe('Chat con credentialId', () => {
       chatRequest({
         messages: [{ role: 'user', content: 'hola' }],
         credentialId: metadata.credentialId,
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash-lite',
       }),
       depsFor('user-a', service, dispatch),
     );
 
     assert.equal(response.status, 200);
     assert.equal(response.body.providerId, 'gemini');
-    assert.equal(response.body.model, 'gemini-2.5-flash');
+    assert.equal(response.body.model, 'gemini-3.5-flash-lite');
     assert.equal(response.body.status, 'success');
     assert.ok(typeof response.body.correlationId === 'string');
 
@@ -176,6 +176,66 @@ describe('Chat con credentialId', () => {
     assert.ok(!serialized.includes(SECRET), 'la clave no aparece en la respuesta');
     assert.ok(!serialized.toLowerCase().includes('apikey'));
     assert.ok(!serialized.toLowerCase().includes('ciphertext'));
+  });
+
+  it('7. sin model explicito elige el default aprobado (gemini-3.8-flash) y nunca gemini-2.0-flash', async () => {
+    const service = new CredentialService(MASTER_SECRET);
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+    const captured: ProviderDispatchInput[] = [];
+    const dispatch = createProviderDispatch({
+      gemini: async (input) => {
+        captured.push(input);
+        return { content: 'respuesta default' };
+      },
+    });
+
+    const response = await handleChatWithStoredCredential(
+      chatRequest({
+        messages: [{ role: 'user', content: 'hola sin model' }],
+        credentialId: metadata.credentialId,
+      }),
+      depsFor('user-a', service, dispatch),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].model, 'gemini-3.8-flash');
+    assert.notEqual(captured[0].model, 'gemini-2.0-flash');
+    assert.equal(response.body.model, 'gemini-3.8-flash');
+  });
+
+  it('8. rechaza explicitamente overrides obsoletos (gemini-2.0-flash, gemini-2.5-flash, gemini-1.5-pro) sin invocar al proveedor', async () => {
+    const service = new CredentialService(MASTER_SECRET);
+    const metadata = await service.save({ ownerId: 'user-a', providerId: 'gemini', apiKey: SECRET });
+
+    for (const obsoleteModel of [
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-2.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro',
+    ]) {
+      let called = false;
+      const dispatch = createProviderDispatch({
+        gemini: async () => {
+          called = true;
+          return { content: 'no debe invocarse' };
+        },
+      });
+
+      const response = await handleChatWithStoredCredential(
+        chatRequest({
+          messages: [{ role: 'user', content: 'hola' }],
+          credentialId: metadata.credentialId,
+          model: obsoleteModel,
+        }),
+        depsFor('user-a', service, dispatch),
+      );
+
+      assert.equal(response.status, 400, `debe rechazar ${obsoleteModel}`);
+      assert.equal((response.body.error as Record<string, unknown>).code, 'INVALID_REQUEST');
+      assert.equal(called, false, `no debe llamar al proveedor para ${obsoleteModel}`);
+    }
   });
 
   it('el contrato del request transporta credentialId', () => {
