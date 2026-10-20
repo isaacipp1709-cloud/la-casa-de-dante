@@ -10,6 +10,7 @@ import {
   DanteConnectionsResponse,
   DanteHealthResponse,
   DanteDocumentIngestionResponse,
+  DanteConversationMessagesResponse,
 } from "./types";
 import {
   DanteChatResponseSchema,
@@ -68,17 +69,20 @@ export class MockDanteProvider {
   private conversations: DanteConversationsResponse = [
     {
       id: "conv-01-arquitectura",
-      external_id: "Auditoría de Frontera Zod (dante-bridge)",
+      external_id: "conv-01-arquitectura",
+      title: "Auditoría de Frontera Zod (dante-bridge)",
       updated_at: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
     },
     {
       id: "conv-02-neuronas",
-      external_id: "Sincronización de 37 Neuronas Cognitivas",
+      external_id: "conv-02-neuronas",
+      title: "Sincronización de 37 Neuronas Cognitivas",
       updated_at: new Date(Date.now() - 1000 * 60 * 48).toISOString(),
     },
     {
       id: "conv-03-seguridad",
-      external_id: "Verificación Zero-Cost & RLS Deny-by-Default",
+      external_id: "conv-03-seguridad",
+      title: "Verificación Zero-Cost & RLS Deny-by-Default",
       updated_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     },
   ];
@@ -136,7 +140,8 @@ export class MockDanteProvider {
         cleanQuery.length > 38 ? `${cleanQuery.slice(0, 38)}...` : cleanQuery || `Sesión ${convId.slice(0, 8)}`;
       this.conversations.unshift({
         id: convId,
-        external_id: shortTitle,
+        external_id: convId,
+        title: shortTitle,
         updated_at: now,
       });
     }
@@ -412,6 +417,13 @@ export class MockDanteProvider {
       throw new ValidationError(parsed.error.format());
     }
     return parsed.data;
+  }
+
+  getConversationMessages(id: string): DanteConversationMessagesResponse {
+    if (!id.trim()) {
+      return [];
+    }
+    return [];
   }
 
   getLogs(): DanteLogsResponse {

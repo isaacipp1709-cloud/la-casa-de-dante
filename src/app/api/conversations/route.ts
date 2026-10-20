@@ -1,4 +1,4 @@
-import { requireAuthorizedOwner } from '@/lib/auth/require-owner';
+import { requireAuthorizedOwner } from "@/lib/auth/require-owner";
 import { NextRequest, NextResponse } from "next/server";
 import { danteBridge } from "@/lib/dante-bridge";
 import { DanteConversationsResponseSchema } from "@/contracts/dante";
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (!owner.ok) {
     return NextResponse.json(
       { error: { code: owner.code, message: owner.message } },
-      { status: owner.status },
+      { status: owner.status }
     );
   }
   try {
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(parsed.data, { status: 200 });
   } catch {
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "No fue posible obtener el historial." } },
-      { status: 500 }
+      { error: { code: "STORAGE_ERROR", message: "No fue posible obtener el historial." } },
+      { status: 503 }
     );
   }
 }

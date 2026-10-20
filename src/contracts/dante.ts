@@ -65,13 +65,78 @@ export const DanteAnalyticsSchema = z.object({
   averageLatencyMs: z.number().nonnegative(),
 });
 
+const TIMESTAMP_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)?$/;
+
+function parseAndNormalizeTimestamp(input: string | Date): string | null {
+  if (input instanceof Date) {
+    return Number.isNaN(input.getTime()) ? null : input.toISOString();
+  }
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  const match = TIMESTAMP_PATTERN.exec(trimmed);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  if (hour > 23 || minute > 59 || second > 59) return null;
+
+  const utcCheck = new Date(Date.UTC(year, month - 1, day));
+  if (
+    utcCheck.getUTCFullYear() !== year ||
+    utcCheck.getUTCMonth() !== month - 1 ||
+    utcCheck.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  let offset = match[8] ?? "Z";
+  if (/^[+-]\d{2}$/.test(offset)) {
+    offset = `${offset}:00`;
+  } else if (/^[+-]\d{4}$/.test(offset)) {
+    offset = `${offset.slice(0, 3)}:${offset.slice(3)}`;
+  }
+
+  const frac = match[7] ? `.${match[7].slice(0, 3).padEnd(3, "0")}` : "";
+  const isoCandidate = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}${frac}${offset}`;
+  const parsedMs = Date.parse(isoCandidate);
+  if (Number.isNaN(parsedMs)) return null;
+
+  return new Date(parsedMs).toISOString();
+}
+
+export const DanteTimestampSchema = z
+  .union([z.string(), z.date()])
+  .refine((val) => parseAndNormalizeTimestamp(val) !== null, {
+    message: "Marca temporal inválida; se requiere fecha ISO-8601 o TIMESTAMPTZ válida",
+  })
+  .transform((val) => parseAndNormalizeTimestamp(val)!);
+
 export const DanteConversationSchema = z.object({
   id: z.string().min(1),
-  external_id: z.string().optional(),
-  updated_at: z.string().datetime(),
+  external_id: z.string().min(1).optional(),
+  title: z.string().optional(),
+  updated_at: DanteTimestampSchema,
 });
 
 export const DanteConversationsResponseSchema = z.array(DanteConversationSchema);
+
+export const DanteConversationMessageSchema = z.object({
+  id: z.string().min(1),
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string(),
+  created_at: DanteTimestampSchema.optional(),
+  timestamp: DanteTimestampSchema.optional(),
+});
+
+export const DanteConversationMessagesResponseSchema = z.array(DanteConversationMessageSchema);
 
 export const DanteLogEntrySchema = z.object({
   id: z.string().min(1),

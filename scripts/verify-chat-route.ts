@@ -3,6 +3,7 @@ import { POST } from "../src/app/api/chat/route";
 import { GET as getNeurons } from "../src/app/api/neurons/route";
 import { GET as getAnalytics } from "../src/app/api/analytics/route";
 import { GET as getConversations } from "../src/app/api/conversations/route";
+import { GET as getConversationMessages } from "../src/app/api/conversations/[id]/messages/route";
 import { GET as getLogs } from "../src/app/api/logs/route";
 import { GET as getProviders, POST as postProvider } from "../src/app/api/providers/route";
 import { GET as getConnections, POST as postConnections } from "../src/app/api/connections/route";
@@ -12,6 +13,7 @@ import {
   DanteNeuronsResponseSchema,
   DanteAnalyticsSchema,
   DanteConversationsResponseSchema,
+  DanteConversationMessagesResponseSchema,
   DanteLogsResponseSchema,
   DanteProvidersResponseSchema,
   DanteConnectionsResponseSchema,
@@ -117,6 +119,35 @@ async function runTests() {
     }
 
     // Mock Core endpoints complementarios
+    if (urlStr.includes("/api/conversations") && !urlStr.includes("/messages")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            id: "route-conv-uuid-1",
+            external_id: "route-session-123",
+            updated_at: new Date().toISOString(),
+          },
+        ],
+      } as unknown as Response;
+    }
+
+    if (urlStr.includes("/messages")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            id: "msg-123",
+            role: "user",
+            content: "Mensaje de prueba en ruta",
+            created_at: new Date().toISOString(),
+          },
+        ],
+      } as unknown as Response;
+    }
+
     if (urlStr.includes("/api/health")) {
       return {
         ok: true,
@@ -249,6 +280,7 @@ async function runTests() {
       neuronsRes,
       analyticsRes,
       conversationsRes,
+      messagesRes,
       logsRes,
       providersRes,
       connectionsRes,
@@ -258,6 +290,7 @@ async function runTests() {
       getNeurons(createAuthorizedRequest("http://localhost/api/neurons", "GET")),
       getAnalytics(createAuthorizedRequest("http://localhost/api/analytics", "GET")),
       getConversations(createAuthorizedRequest("http://localhost/api/conversations", "GET")),
+      getConversationMessages(createAuthorizedRequest("http://localhost/api/conversations/route-session-123/messages", "GET"), { params: { id: "route-session-123" } }),
       getLogs(createAuthorizedRequest("http://localhost/api/logs", "GET")),
       getProviders(createAuthorizedRequest("http://localhost/api/providers", "GET")),
       getConnections(createAuthorizedRequest("http://localhost/api/connections", "GET")),
@@ -268,6 +301,7 @@ async function runTests() {
     const neuronsOk = neuronsRes.status === 200 && DanteNeuronsResponseSchema.safeParse(await neuronsRes.json()).success;
     const analyticsOk = analyticsRes.status === 200 && DanteAnalyticsSchema.safeParse(await analyticsRes.json()).success;
     const conversationsOk = conversationsRes.status === 200 && DanteConversationsResponseSchema.safeParse(await conversationsRes.json()).success;
+    const messagesOk = messagesRes.status === 200 && DanteConversationMessagesResponseSchema.safeParse(await messagesRes.json()).success;
     const logsOk = logsRes.status === 200 && DanteLogsResponseSchema.safeParse(await logsRes.json()).success;
     const providersOk = providersRes.status === 200 && DanteProvidersResponseSchema.safeParse(await providersRes.json()).success;
     const connectionsOk = connectionsRes.status === 200 && DanteConnectionsResponseSchema.safeParse(await connectionsRes.json()).success;
@@ -296,6 +330,7 @@ async function runTests() {
       neuronsOk &&
       analyticsOk &&
       conversationsOk &&
+      messagesOk &&
       logsOk &&
       providersOk &&
       connectionsOk &&
@@ -304,12 +339,13 @@ async function runTests() {
       invalidProvRes.status === 400 &&
       validDocRes.status === 201
     ) {
-      console.log("✅ OK: Las 8 rutas API unificadas responden con estricta autorización y esquemas válidos.");
+      console.log("✅ OK: Las rutas API unificadas (incluyendo conversaciones y mensajes) responden con estricta autorización y esquemas válidos.");
     } else {
       console.error("❌ Falló TEST 6 en alguna ruta API unificada.", {
         neuronsOk,
         analyticsOk,
         conversationsOk,
+        messagesOk,
         logsOk,
         providersOk,
         connectionsOk,

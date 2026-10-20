@@ -134,4 +134,40 @@ Resolver las fallas de continuidad del hilo de conversación y la pérdida del e
      - `verify:bridge`: Adaptado al contrato de identidad firmada (`verifiedOwnerId`) con dependencias interceptadas en memoria (Código 0).
      - `verify:chat-route`: Valida rechazo de llamadas anónimas (401 UNAUTHORIZED) y recorrido autorizado con fixtures de Supabase Auth en memoria, sin alterar `requireAuthorizedOwner` ni introducir bypasses (Código 0).
      - `verify:chat-ui`: Adaptado a `authorizedFetch` (prohibiendo `fetch` plano hacia `/api/chat`), distinguiendo explícitamente auditoría estática de prueba de navegador interactiva (Código 0).
-   - **Revisión Git de Whitespace:** `core.whitespace` fue restaurado a su estado original desconfigurado (unset). La alerta en `git diff --check` se debe a los retornos de carro en el blob histórico `-text` de `index.ts` y no a espacios en blanco reales.
+   - **Revisión Git de Whitespace:** `core.whitespace` fue restaurado a su estado original desconfigurado (unset). La normalización LF de `index.ts` resolvió `git diff --check` en código 0 sin alterar contenido funcional.
+
+---
+
+## 8. Checkpoint Local y Recuperación Real del Historial (2026-10-20 — Fase A y B)
+
+### Fase A: Checkpoint Local Preservado
+- **Commit SHA:** `d2440810b40bba17c3c7f53bfa13e58b6d159f3c`
+- **Mensaje:** `fix(chat): preserve conversation identity and persistence status`
+- **Staging Selectivo:** 13 archivos validados sin secretos ni cambios ajenos.
+- **Estado:** Rama `rescue/isaac-2026-10-18` adelantada por 1 commit respecto al remoto. Sin push, sin merge, sin deploy.
+
+### Fase B: Recuperación Real del Historial y Endurecimiento de Concurrencia
+1. **Motor Real de Estado y Concurrencia (`src/components/chat/chat-history-state.ts`):**
+   - Extraído y conectado directamente a `ChatShell` (`src/components/chat/chat-shell.tsx`), permitiendo que la interfaz y las pruebas de comportamiento ejecuten exactamente la misma máquina de estados determinista.
+   - Retiro total de conversaciones sembradas (`conv-01-arquitectura`, `conv-02-neuronas`).
+2. **Corrección del Primer Envío desde Lista Vacía:**
+   - Creación síncrona de un único hilo con ID criptográfico (`generateThreadId()`), actualización explícita por `targetThreadId` (`updateThreadById`) sin depender del closure del render anterior (`"nueva-conversacion"`), y propagación consistente de `sessionId` y `conversationId` en el primer y segundo turno.
+3. **ID Único por Mensaje Independiente de `correlationId`:**
+   - Generación criptográfica de `id` único para cada mensaje (`generateMessageId()`) sin usar `${validData.correlationId}-a` ni `Date.now()`, conservando por separado `conversationId` y `correlationId`.
+4. **Bloqueo de Envío Durante Carga o Error de Historial Remoto:**
+   - Bloqueo en el controlador (`submitMessage`) y en la UI (`ChatShell`) antes de añadir mensaje o invocar `/api/chat` si un hilo remoto existente tiene mensajes pendientes de carga (`"idle"` / `!messagesLoaded`), cargándose (`"loading"`) o en error (`"error"`), ofreciendo acción explícita de carga o reintento y preservando el envío normal en hilos locales nuevos y los mensajes locales válidos al resolver historial (`!loadedIds.has(m.id)`).
+5. **Protección contra Respuestas Obsoletas y Cambio de Identidad (`authEpoch` + `requestId` + `AbortController`):**
+   - Invalidación inmediata de solicitudes pendientes ante desmontaje, `SIGNED_OUT` o cambio de usuario (Usuario A → Usuario B), difiriendo la recarga en `onAuthStateChange` al siguiente tick del event loop.
+   - Guardia en `finally` para que una solicitud obsoleta nunca apague el indicador de carga de una solicitud vigente.
+6. **Separación de Estados (`loading | loaded-empty | loaded | error | unauthorized`) y Reintento:**
+   - Un error de transporte o almacenamiento nunca marca `messagesLoaded: true` ni inserta mensajes `role: "system"` falsos dentro de `session.messages`, preservando mensajes válidos previos y ofreciendo acciones de reintento (`retryLoadConversations`, `retryLoadMessages`).
+7. **Contratos de Fechas y Resolución de Identificadores (`src/contracts/dante.ts`, `src/lib/dante-bridge/index.ts`):**
+   - `DanteTimestampSchema` valida y normaliza marcas temporales ISO-8601 y `TIMESTAMPTZ` de PostgreSQL a ISO-8601 UTC, rechazando strings arbitrarios o fechas inválidas sin inventar `new Date().toISOString()`.
+   - Uso explícito de `encodeURIComponent` en todas las rutas hacia Core y eliminación del `catch` silencioso en la resolución secundaria de `getConversationMessages`.
+8. **Validación Exhaustiva:**
+   - Suite `tests/conversation-history.test.ts` ampliada a **13 escenarios de comportamiento y concurrencia** (13/13 PASS).
+   - Suite `tests/conversation-continuity.test.ts` (11/11 PASS).
+   - Suite completa del proyecto `npm test` con **119 pruebas en 25 suites pasando (100%)**.
+   - Verificadores `verify:bridge`, `verify:chat-route` y `verify:chat-ui` en Código 0.
+   - `npm run typecheck`, `npm run lint`, `npm run build` y `git diff --check` en Código 0.
+   - Documentación detallada en `docs/bitacoras/session-04.md`.

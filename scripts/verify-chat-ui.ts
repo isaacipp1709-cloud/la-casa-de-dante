@@ -38,6 +38,7 @@ function verifyUiFiles() {
     join(UI_DIR, "chat-message.tsx"),
     join(UI_DIR, "chat-composer.tsx"),
     join(UI_DIR, "chat-shell.tsx"),
+    join(UI_DIR, "chat-history-state.ts"),
   ];
 
   let totalErrors = 0;
@@ -58,41 +59,64 @@ function verifyUiFiles() {
 
   try {
     const shellContent = readFileSync(join(UI_DIR, "chat-shell.tsx"), "utf-8");
+    const stateContent = readFileSync(join(UI_DIR, "chat-history-state.ts"), "utf-8");
+    const combinedUiContent = `${shellContent}\n${stateContent}`;
 
-    // 1. Verificación de transporte autenticado (authorizedFetch)
-    if (!/authorizedFetch\(\s*["']\/api\/chat["']/.test(shellContent)) {
-      console.error("❌ [FAIL] chat-shell.tsx debe usar authorizedFetch relativo a /api/chat.");
+    // 0. Verificación de delegación directa de estado de ChatShell al controlador real
+    if (!/createChatHistoryController/.test(shellContent)) {
+      console.error("❌ [FAIL] chat-shell.tsx debe usar createChatHistoryController de chat-history-state.ts.");
       totalErrors++;
     } else {
-      console.log("✅ chat-shell.tsx utiliza authorizedFetch relativo a /api/chat.");
+      console.log("✅ chat-shell.tsx delega su máquina de estados real en createChatHistoryController.");
     }
 
-    if (/\bfetch\(\s*["']\/api\/chat["']/.test(shellContent)) {
-      console.error("❌ [FAIL] chat-shell.tsx no debe usar fetch plano a /api/chat (debe usar authorizedFetch).");
-      totalErrors++;
-    }
-
-    const authFetchCalls = shellContent.match(/\bauthorizedFetch\s*\(/g) ?? [];
-    if (authFetchCalls.length !== 1) {
-      console.error(`❌ [FAIL] Se esperaba exactamente una llamada a authorizedFetch; se detectaron ${authFetchCalls.length}.`);
+    // 1. Verificación de transporte autenticado (authorizedFetch) y rutas de historial/chat
+    if (!/authorizedFetch/.test(shellContent) || !/authorizedFetch/.test(stateContent)) {
+      console.error("❌ [FAIL] chat-shell.tsx y chat-history-state.ts deben enlazar authorizedFetch.");
       totalErrors++;
     } else {
-      console.log("✅ Exactamente una llamada a authorizedFetch detectada en el envío de mensajes.");
+      console.log("✅ Transporte autenticado authorizedFetch enlazado en ChatShell y controlador de historial.");
     }
 
-    // 2. Verificación de transmisión de identificadores de conversación
-    const sendsConversationId = /conversationId:\s*currentSession\.id\b/.test(shellContent);
-    const sendsSessionId = /sessionId:\s*currentSession\.id\b/.test(shellContent);
+    if (!/(?:fetchFn|authorizedFetch)\(\s*["']\/api\/chat["']/.test(combinedUiContent)) {
+      console.error("❌ [FAIL] El módulo de chat debe invocar /api/chat mediante el transporte autenticado.");
+      totalErrors++;
+    } else {
+      console.log("✅ El módulo de chat invoca /api/chat mediante el transporte autenticado.");
+    }
+
+    if (!/(?:fetchFn|authorizedFetch)\(\s*["']\/api\/conversations["']/.test(combinedUiContent)) {
+      console.error("❌ [FAIL] El módulo de chat debe invocar /api/conversations mediante el transporte autenticado.");
+      totalErrors++;
+    } else {
+      console.log("✅ El módulo de chat invoca /api/conversations mediante el transporte autenticado.");
+    }
+
+    if (!/(?:fetchFn|authorizedFetch)\(\s*`\/api\/conversations\/\$\{encodeURIComponent\(/.test(combinedUiContent)) {
+      console.error("❌ [FAIL] El módulo de chat debe invocar /api/conversations/[id]/messages con encodeURIComponent.");
+      totalErrors++;
+    } else {
+      console.log("✅ El módulo de chat invoca /api/conversations/[id]/messages con encodeURIComponent.");
+    }
+
+    if (/\bfetch\(\s*["'`]\/api\//.test(combinedUiContent)) {
+      console.error("❌ [FAIL] No se debe usar fetch plano a rutas /api/ (debe usar authorizedFetch / fetchFn).");
+      totalErrors++;
+    }
+
+    // 2. Verificación de transmisión de identificadores de conversación explícitos
+    const sendsConversationId = /conversationId:\s*targetThreadId\b/.test(stateContent);
+    const sendsSessionId = /sessionId:\s*targetThreadId\b/.test(stateContent);
     if (!sendsConversationId || !sendsSessionId) {
-      console.error("❌ [FAIL] chat-shell.tsx debe transmitir conversationId y sessionId derivados de la sesión activa.");
+      console.error("❌ [FAIL] El controlador de chat debe transmitir conversationId y sessionId explícitos (targetThreadId).");
       totalErrors++;
     } else {
-      console.log("✅ chat-shell.tsx propaga conversationId y sessionId estables en el cuerpo de la solicitud.");
+      console.log("✅ El controlador de chat propaga conversationId y sessionId explícitos (targetThreadId).");
     }
 
     // 3. Verificación de generador criptográfico de identificadores (sin Date.now ni Math.random)
-    const fnMatch = shellContent.match(/function\s+generateThreadId\s*\(\)\s*:\s*string\s*\{([\s\S]*?)\n\}/);
-    const fnBody = fnMatch ? fnMatch[1] : '';
+    const fnMatch = stateContent.match(/export\s+function\s+generateThreadId\s*\(\)\s*:\s*string\s*\{([\s\S]*?)\n\}/);
+    const fnBody = fnMatch ? fnMatch[1] : "";
     const usesCryptoApi = fnBody.includes("crypto.randomUUID") && fnBody.includes("crypto.getRandomValues");
     const usesDateNowForId = fnBody.includes("Date.now");
     const usesMathRandomForId = fnBody.includes("Math.random");
@@ -105,15 +129,15 @@ function verifyUiFiles() {
     }
 
     // 4. Verificación de manejo del estado de persistencia
-    const handlesPersistenceWarning = /data\.persistence\s*===\s*["']unavailable["']/.test(shellContent);
+    const handlesPersistenceWarning = /persistence\s*===\s*["']unavailable["']/.test(combinedUiContent);
     if (!handlesPersistenceWarning) {
-      console.error("❌ [FAIL] chat-shell.tsx debe detectar data.persistence === 'unavailable' y avisar al usuario.");
+      console.error("❌ [FAIL] El módulo de chat debe detectar persistence === 'unavailable' y avisar al usuario.");
       totalErrors++;
     } else {
-      console.log("✅ chat-shell.tsx detecta y alerta al usuario ante data.persistence === 'unavailable'.");
+      console.log("✅ El módulo de chat detecta y alerta al usuario ante persistence === 'unavailable'.");
     }
   } catch (error: unknown) {
-    console.error("❌ [FAIL] No se pudo verificar la política de transporte y contratos en chat-shell.tsx.", error);
+    console.error("❌ [FAIL] No se pudo verificar la política de transporte y contratos en el módulo de chat.", error);
     totalErrors++;
   }
 

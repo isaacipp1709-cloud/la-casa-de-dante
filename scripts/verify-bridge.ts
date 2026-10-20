@@ -5,6 +5,7 @@ import {
   DanteNeuronsResponseSchema,
   DanteAnalyticsSchema,
   DanteConversationsResponseSchema,
+  DanteConversationMessagesResponseSchema,
   DanteLogsResponseSchema,
   DanteProvidersResponseSchema,
   DanteConnectionsResponseSchema,
@@ -43,11 +44,31 @@ async function runVerification() {
         }),
       } as unknown as Response;
     }
+    if (urlStr.includes("/api/conversations") && !urlStr.includes("/messages")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            id: "bridge-conv-uuid-1",
+            external_id: "bridge-session-xyz",
+            updated_at: new Date().toISOString(),
+          },
+        ],
+      } as unknown as Response;
+    }
     if (urlStr.includes("/messages")) {
       return {
         ok: true,
         status: 200,
-        json: async () => [],
+        json: async () => [
+          {
+            id: "bridge-msg-1",
+            role: "user",
+            content: "Hola Dante en aislamiento.",
+            created_at: new Date().toISOString(),
+          },
+        ],
       } as unknown as Response;
     }
     if (urlStr.includes("/api/health")) {
@@ -131,6 +152,7 @@ async function runVerification() {
     const neurons = await danteBridge.getNeurons();
     const analytics = await danteBridge.getAnalytics();
     const conversations = await danteBridge.getConversations("test-owner-uuid-verify-bridge");
+    const conversationMessages = await danteBridge.getConversationMessages("bridge-session-xyz", "test-owner-uuid-verify-bridge");
     const logs = await danteBridge.getLogs();
     const providers = await danteBridge.getProviders();
     const connections = await danteBridge.getConnections();
@@ -141,6 +163,7 @@ async function runVerification() {
       !DanteNeuronsResponseSchema.safeParse(neurons).success ||
       !DanteAnalyticsSchema.safeParse(analytics).success ||
       !DanteConversationsResponseSchema.safeParse(conversations).success ||
+      !DanteConversationMessagesResponseSchema.safeParse(conversationMessages).success ||
       !DanteLogsResponseSchema.safeParse(logs).success ||
       !DanteProvidersResponseSchema.safeParse(providers).success ||
       !DanteConnectionsResponseSchema.safeParse(connections).success ||

@@ -7,6 +7,7 @@ import {
   DanteNeuronsResponse,
   DanteAnalytics,
   DanteConversationsResponse,
+  DanteConversationMessagesResponse,
   DanteLogsResponse,
   DanteProvidersResponse,
   DanteConnectionsResponse,
@@ -19,6 +20,7 @@ import {
   DanteNeuronsResponseSchema,
   DanteAnalyticsSchema,
   DanteConversationsResponseSchema,
+  DanteConversationMessagesResponseSchema,
   DanteLogsResponseSchema,
   DanteProvidersResponseSchema,
   DanteConnectionsResponseSchema,
@@ -62,6 +64,7 @@ export interface DanteBridge {
   getNeurons(): Promise<DanteNeuronsResponse>;
   getAnalytics(): Promise<DanteAnalytics>;
   getConversations(ownerId?: string): Promise<DanteConversationsResponse>;
+  getConversationMessages(identifier: string, ownerId?: string): Promise<DanteConversationMessagesResponse>;
   getLogs(): Promise<DanteLogsResponse>;
   getProviders(): Promise<DanteProvidersResponse>;
   addProvider(payload: unknown): Promise<DanteProvidersResponse>;
@@ -146,7 +149,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
 
         try {
           const rawHistory = await fetchFromDanteCore(
-            `/api/conversations/${conversationId}/messages`,
+            `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
             3000,
             options?.verifiedOwnerId ? ownerAssertionHeaders(options.verifiedOwnerId) : undefined
           );
@@ -359,19 +362,78 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
   async getConversations(ownerId?: string): Promise<DanteConversationsResponse> {
     if (this.isLocalCoreMode()) {
       try {
-        const assertion = ownerId ? ownerAssertionHeaders(ownerId) : undefined;
+        const assertion = ownerAssertionHeaders(ownerId);
+        if (Object.keys(assertion).length === 0) {
+          throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
+        }
         const data = await fetchFromDanteCore('/api/conversations', 8_000, assertion);
         const parsed = DanteConversationsResponseSchema.safeParse(data);
         if (parsed.success) {
           this.setStatus('CONNECTED');
           return parsed.data;
         }
+        throw new Error('Respuesta de conversaciones inválida desde Core.');
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
         this.setStatus('DEGRADED', errorMsg);
+        throw error;
       }
     }
     return this.provider.getConversations();
+  }
+
+  async getConversationMessages(
+    identifier: string,
+    ownerId?: string,
+  ): Promise<DanteConversationMessagesResponse> {
+    if (this.isLocalCoreMode()) {
+      try {
+        const assertion = ownerAssertionHeaders(ownerId);
+        if (Object.keys(assertion).length === 0) {
+          throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
+        }
+        const encodedIdentifier = encodeURIComponent(identifier);
+        const data = await fetchFromDanteCore(
+          `/api/conversations/${encodedIdentifier}/messages`,
+          8_000,
+          assertion,
+        );
+        const parsed = DanteConversationMessagesResponseSchema.safeParse(data);
+        if (!parsed.success) {
+          throw new Error('Respuesta de mensajes inválida desde Core.');
+        }
+
+        // Si la consulta por identifier directo devuelve vacío, comprobar si el identifier es un UUID interno
+        // cuya conversación tiene un external_id distinto. No se tragan fallos remotos ni errores de esquema.
+        if (parsed.data.length === 0) {
+          const conversations = await this.getConversations(ownerId);
+          const matching = conversations.find(
+            (c) => c.id === identifier && c.external_id && c.external_id !== identifier,
+          );
+          if (matching?.external_id) {
+            const retryData = await fetchFromDanteCore(
+              `/api/conversations/${encodeURIComponent(matching.external_id)}/messages`,
+              8_000,
+              assertion,
+            );
+            const retryParsed = DanteConversationMessagesResponseSchema.safeParse(retryData);
+            if (!retryParsed.success) {
+              throw new Error('Respuesta de mensajes inválida desde Core.');
+            }
+            this.setStatus('CONNECTED');
+            return retryParsed.data;
+          }
+        }
+
+        this.setStatus('CONNECTED');
+        return parsed.data;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'UNKNOWN';
+        this.setStatus('DEGRADED', errorMsg);
+        throw error;
+      }
+    }
+    return this.provider.getConversationMessages(identifier);
   }
 
   async getLogs(): Promise<DanteLogsResponse> {

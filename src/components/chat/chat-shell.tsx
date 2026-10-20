@@ -1,33 +1,15 @@
 "use client";
 
-import { authorizedFetch } from "@/lib/auth/client-session";
-import { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from './chat-message';
-import { ChatComposer } from './chat-composer';
-import { z } from 'zod';
-import { DanteChatRequestSchema, DanteChatResponseSchema } from '@/contracts/dante';
-import { Terminal, Plus, RotateCcw, Sparkles, MessageSquare } from 'lucide-react';
-
-type DanteChatRequest = z.infer<typeof DanteChatRequestSchema>;
-type DanteChatResponse = z.infer<typeof DanteChatResponseSchema>;
-
-type Message = {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  providerId?: string;
-  model?: string;
-  correlationId?: string;
-  timestamp?: string;
-  usage?: { promptTokens: number; completionTokens: number; totalTokens: number; };
-};
-
-type SessionThread = {
-  id: string;
-  title: string;
-  updatedAt: string;
-  messages: Message[];
-};
+import { authorizedFetch, getBrowserAuthClient } from "@/lib/auth/client-session";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ChatMessage } from "./chat-message";
+import { ChatComposer } from "./chat-composer";
+import { Terminal, Plus, RotateCcw, Sparkles, MessageSquare } from "lucide-react";
+import {
+  createChatHistoryController,
+  type ChatHistorySnapshot,
+  type SessionThread,
+} from "./chat-history-state";
 
 const QUICK_PROMPTS = [
   "Analiza el estado actual de las 37 neuronas de Von Neumann",
@@ -35,247 +17,127 @@ const QUICK_PROMPTS = [
   "Resume las políticas de seguridad $0 Tier activas",
 ];
 
-function generateThreadId(): string {
-  if (typeof crypto !== "undefined") {
-    if (typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    if (typeof crypto.getRandomValues === "function") {
-      const buffer = new Uint8Array(16);
-      crypto.getRandomValues(buffer);
-      buffer[6] = (buffer[6] & 0x0f) | 0x40; // RFC 4122 v4
-      buffer[8] = (buffer[8] & 0x3f) | 0x80; // RFC 4122 variant
-      const hex = Array.from(buffer, (b) => b.toString(16).padStart(2, "0")).join("");
-      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-    }
-  }
-  throw new Error("Generador criptográfico no disponible para identificadores de conversación.");
-}
-
-function createDefaultSessions(): SessionThread[] {
-  return [
-    {
-      id: generateThreadId(),
-      title: "Sesión Activa · Centro de Mando",
-      updatedAt: new Date().toISOString(),
-      messages: [],
-    },
-  {
-    id: "conv-02-neuronas",
-    title: "Auditoría 37 Neuronas Cognitivas",
-    updatedAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    messages: [
-      {
-        id: "seed-1",
-        role: "user",
-        content: "Reporte de estado del subsistema ejecutivo y frontera Zod.",
-        timestamp: new Date(Date.now() - 1000 * 60 * 26).toISOString(),
-      },
-      {
-        id: "seed-2",
-        role: "assistant",
-        content:
-          "Subsistema Ejecutivo (N01-N06) y Seguridad (N07-N12) operando de forma determinista. Las 8 rutas del puente validan contratos con z.safeParse() bajo política $0 Tier.",
-        providerId: "mock-local",
-        correlationId: "conv-02-neuronas-2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-        usage: {
-          promptTokens: 14,
-          completionTokens: 32,
-          totalTokens: 46,
-        },
-      },
-    ],
-  },
-  ];
-}
-
-const CHAT_ERROR_MESSAGES: Record<string, string> = {
-  NOT_FOUND:
-    "No tienes una clave guardada que coincida con este proveedor. Guardala y vuelve a intentarlo.",
-  UNAUTHORIZED: "Tu sesion no esta autenticada. Inicia sesion para usar una clave guardada.",
-  PROVIDER_NOT_SUPPORTED: "El proveedor seleccionado todavia no esta habilitado.",
-  PROVIDER_UNAUTHORIZED: "El proveedor rechazo la clave guardada. Verificala o guardala de nuevo.",
-  PROVIDER_RATE_LIMITED: "Se alcanzo el limite de uso del proveedor. Intentalo mas tarde.",
-  PROVIDER_TIMEOUT: "El proveedor tardo demasiado en responder.",
-  PROVIDER_NETWORK_ERROR: "No se pudo conectar con el proveedor.",
-  PROVIDER_ERROR: "El proveedor devolvio un error. Intentalo nuevamente.",
-  CONFIGURATION_ERROR: "Falta configuracion en el servidor para usar credenciales.",
-  INVALID_REQUEST: "La solicitud no es valida. Revisa el contenido e intentalo de nuevo.",
-};
-
-const getSafeErrorMessage = (status: number, code?: string) => {
-  if (code && CHAT_ERROR_MESSAGES[code]) {
-    return CHAT_ERROR_MESSAGES[code];
-  }
-
-  if (status === 400) {
-    return "No se pudo procesar el mensaje. Revisa el contenido e inténtalo nuevamente.";
-  }
-
-  if (status === 401) {
-    return "Tu sesion no esta autenticada. Inicia sesion para usar una clave guardada.";
-  }
-
-  return "Dante no pudo responder en este momento. inténtalo nuevamente.";
+const EMPTY_FALLBACK_SESSION: SessionThread = {
+  id: "nueva-conversacion",
+  internalId: "nueva-conversacion",
+  title: "Nueva conversación",
+  messages: [],
+  messagesStatus: "idle",
+  messagesLoaded: true,
+  messagesError: null,
+  sendError: null,
+  persistenceWarning: null,
 };
 
 export function ChatShell() {
-  const [sessions, setSessions] = useState<SessionThread[]>(createDefaultSessions);
-  const [activeSessionId, setActiveSessionId] = useState<string>(() => sessions[0]?.id ?? generateThreadId());
-  const [isTyping, setIsTyping] = useState(false);
+  const controllerRef = useRef<ReturnType<typeof createChatHistoryController> | null>(null);
+  if (!controllerRef.current) {
+    controllerRef.current = createChatHistoryController({
+      fetchFn: (input, init) => authorizedFetch(String(input), init),
+    });
+  }
+
+  const [historyState, setHistoryState] = useState<ChatHistorySnapshot>(() =>
+    controllerRef.current!.getSnapshot()
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const currentSession =
-    sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
+  useEffect(() => {
+    const controller = createChatHistoryController({
+      fetchFn: (url, init) => authorizedFetch(String(url), init),
+      onChange: (snapshot) => {
+        setHistoryState(snapshot);
+      },
+    });
+    controllerRef.current = controller;
+    setHistoryState(controller.getSnapshot());
+
+    void controller.loadConversations();
+
+    const client = getBrowserAuthClient();
+    const subscription = client
+      ? client.auth.onAuthStateChange((event, session) => {
+          controller.handleAuthStateChange(event, session?.user?.id ?? null);
+        }).data.subscription
+      : null;
+
+    return () => {
+      subscription?.unsubscribe();
+      controller.dispose();
+    };
+  }, []);
+
+  const {
+    sessions,
+    activeSessionId,
+    activeSession,
+    conversationsStatus,
+    conversationsError,
+    isUnauthenticated,
+    isLoadingConversations,
+    isLoadingMessages,
+    isSending,
+  } = historyState;
+
+  const currentSession = activeSession ?? EMPTY_FALLBACK_SESSION;
   const messages = currentSession.messages;
+
+  // Para un hilo remoto existente, bloquear el envío mientras sus mensajes estén pendientes de carga, cargándose o en error
+  const isHistoryBlocked =
+    activeSession !== null &&
+    (!activeSession.messagesLoaded ||
+      activeSession.messagesStatus === "idle" ||
+      activeSession.messagesStatus === "loading" ||
+      activeSession.messagesStatus === "error");
+
+  const isSendDisabled = isSending || isHistoryBlocked;
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping, activeSessionId]);
+  }, [messages.length, isSending, activeSessionId]);
 
-  const updateCurrentMessages = (updater: (prev: Message[]) => Message[], newTitle?: string) => {
-    setSessions((prevSessions) =>
-      prevSessions.map((session) => {
-        if (session.id !== currentSession.id) return session;
-        const updatedMessages = updater(session.messages);
-        return {
-          ...session,
-          title: newTitle ?? session.title,
-          updatedAt: new Date().toISOString(),
-          messages: updatedMessages,
-        };
-      })
-    );
-  };
+  const handleSelectSession = useCallback((sessionId: string) => {
+    void controllerRef.current?.selectSession(sessionId);
+  }, []);
 
-  const handleNewSession = () => {
-    const newId = generateThreadId();
-    const newThread: SessionThread = {
-      id: newId,
-      title: "Nueva conversación",
-      updatedAt: new Date().toISOString(),
-      messages: [],
-    };
-    setSessions((prev) => [newThread, ...prev]);
-    setActiveSessionId(newId);
-  };
+  const handleNewSession = useCallback(() => {
+    controllerRef.current?.createNewSession();
+  }, []);
 
-  const handleClearCurrent = () => {
-    updateCurrentMessages(() => []);
-  };
+  const handleClearCurrent = useCallback(() => {
+    controllerRef.current?.clearCurrentMessages();
+  }, []);
 
-  const submitMessage = async (
-    content: string,
-    providerOverride?: string,
-    modelOverride?: string,
-    credentialOverride?: string,
-  ) => {
-    // La seleccion llega desde el composer (ProviderSelector) en cada envio.
-    const effectiveProvider = providerOverride;
-    const effectiveModel = modelOverride;
-    const nowIso = new Date().toISOString();
-    const userMessage: Message = {
-      providerId: effectiveProvider,
-      model: effectiveModel,
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: nowIso,
-    };
+  const handleRetryConversations = useCallback(() => {
+    void controllerRef.current?.retryLoadConversations();
+  }, []);
 
-    const inferredTitle =
-      messages.length === 0
-        ? content.length > 36
-          ? `${content.slice(0, 36)}…`
-          : content
-        : undefined;
+  const handleRetryMessages = useCallback(() => {
+    void controllerRef.current?.retryLoadMessages();
+  }, []);
 
-    updateCurrentMessages((prev) => [...prev, userMessage], inferredTitle);
-    setIsTyping(true);
-
-    try {
-      const history = messages
-        .filter((m) => m.role !== 'system')
-        .map((m) => ({ role: m.role, content: m.content })) as DanteChatRequest['messages'];
-
-      const requestPayload: DanteChatRequest = {
-        providerId: effectiveProvider,
-        model: effectiveModel,
-        credentialId: credentialOverride,
-        sessionId: currentSession.id,
-        conversationId: currentSession.id,
-        messages: [...history, { role: 'user', content }],
-      };
-
-      const res = await authorizedFetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestPayload),
+  const submitMessage = useCallback(
+    async (
+      content: string,
+      providerOverride?: string,
+      modelOverride?: string,
+      credentialOverride?: string,
+    ) => {
+      await controllerRef.current?.submitMessage({
+        text: content,
+        providerId: providerOverride,
+        model: modelOverride,
+        credentialId: credentialOverride ?? null,
       });
+    },
+    []
+  );
 
-      if (!res.ok) {
-        let errorCode: string | undefined;
-        try {
-          const errorBody = (await res.json()) as { error?: { code?: string } };
-          errorCode = errorBody?.error?.code;
-        } catch {
-          // Cuerpo no legible: se usa el mensaje generico por estado.
-        }
-        throw new Error(getSafeErrorMessage(res.status, errorCode));
-      }
-
-      const data = (await res.json()) as DanteChatResponse & { persistence?: string };
-
-      if (data.persistence === 'unavailable') {
-        updateCurrentMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'system',
-            content: 'La respuesta se genero, pero no se pudo guardar la conversacion en el servidor.',
-            timestamp: new Date().toISOString(),
-          },
-        ]);
-      }
-
-      if (data.status === 'error') {
-        throw new Error('Error de validación o servidor.');
-      }
-
-      const assistantMsg: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: data.message.content,
-        providerId: data.providerId,
-        model: data.model,
-        correlationId: data.correlationId,
-        timestamp: data.message.timestamp || new Date().toISOString(),
-        usage: data.usage,
-      };
-
-      updateCurrentMessages((prev) => [...prev, assistantMsg]);
-    } catch (error: unknown) {
-      let errorMessage = 'Error desconocido';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      const errorMsg: Message = {
-        id: crypto.randomUUID(),
-        role: 'system',
-        content: errorMessage,
-        timestamp: new Date().toISOString(),
-      };
-      updateCurrentMessages((prev) => [...prev, errorMsg]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const handleSend = async (content: string) => {
-    await submitMessage(content);
+  const handleSend = (content: string) => {
+    void submitMessage(content);
   };
 
   const handleComposerSend = (message: {
@@ -284,7 +146,12 @@ export function ChatShell() {
     model?: string;
     credentialId?: string;
   }) => {
-    void submitMessage(message.content, message.providerId, message.model, message.credentialId);
+    void submitMessage(
+      message.content,
+      message.providerId,
+      message.model,
+      message.credentialId
+    );
   };
 
   return (
@@ -296,25 +163,52 @@ export function ChatShell() {
           <label htmlFor="session-selector" className="sr-only">
             Seleccionar conversación
           </label>
-          <select
-            id="session-selector"
-            value={currentSession.id}
-            onChange={(e) => setActiveSessionId(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-700 truncate max-w-xs sm:max-w-sm"
-          >
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title} ({s.messages.length} msg)
-              </option>
-            ))}
-          </select>
+          {isLoadingConversations ? (
+            <span className="text-xs font-mono text-zinc-400 animate-pulse">
+              Cargando conversaciones...
+            </span>
+          ) : isUnauthenticated ? (
+            <span className="text-xs font-mono text-amber-400">
+              Inicia sesión para cargar tu historial persistente
+            </span>
+          ) : conversationsStatus === "error" && conversationsError ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-red-400 truncate max-w-xs sm:max-w-md">
+                {conversationsError}
+              </span>
+              <button
+                type="button"
+                onClick={handleRetryConversations}
+                className="px-2 py-1 rounded bg-red-950/60 hover:bg-red-900/60 border border-red-800/80 text-[11px] font-mono text-red-200 transition-colors"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : sessions.length === 0 ? (
+            <span className="text-xs font-mono text-zinc-500">
+              Sin conversaciones guardadas
+            </span>
+          ) : (
+            <select
+              id="session-selector"
+              value={activeSessionId ?? ""}
+              onChange={(e) => handleSelectSession(e.target.value)}
+              className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-700 truncate max-w-xs sm:max-w-sm"
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} ({s.messagesLoaded ? `${s.messages.length} msg` : "ver"})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleNewSession}
-            disabled={isTyping}
+            disabled={isSending}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 text-xs font-mono transition-colors disabled:opacity-50"
           >
             <Plus className="w-3.5 h-3.5 text-emerald-400" />
@@ -324,7 +218,7 @@ export function ChatShell() {
             <button
               type="button"
               onClick={handleClearCurrent}
-              disabled={isTyping}
+              disabled={isSending}
               aria-label="Limpiar sesión actual"
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800/80 text-xs font-mono transition-colors disabled:opacity-50"
             >
@@ -343,35 +237,83 @@ export function ChatShell() {
         aria-label="Historial de mensajes"
       >
         <div role="list" className="flex flex-col max-w-4xl mx-auto w-full pb-4">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center mt-16 sm:mt-20 text-center space-y-5">
-              <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-xl flex items-center justify-center shadow-sm">
-                <Terminal className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-zinc-200 font-medium text-sm">
-                  Núcleo conversacional inicializado.
-                </p>
-                <p className="text-zinc-500 text-xs font-mono">
-                  Sesión: {currentSession.id} · Frontera Zod activa
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl pt-2">
-                {QUICK_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    disabled={isTyping}
-                    onClick={() => handleSend(prompt)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs text-zinc-300 transition-colors text-left"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>{prompt}</span>
-                  </button>
-                ))}
+          {isLoadingMessages && (
+            <div className="flex w-full mb-3 justify-start">
+              <div className="bg-zinc-900/60 text-zinc-400 border border-zinc-800 rounded-md px-4 py-3 text-xs font-mono animate-pulse">
+                Cargando mensajes de la conversación...
               </div>
             </div>
           )}
+
+          {activeSession !== null &&
+            (!currentSession.messagesLoaded || currentSession.messagesStatus === "idle") &&
+            currentSession.messagesStatus !== "loading" &&
+            currentSession.messagesStatus !== "error" && (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-800/80 bg-amber-950/30 px-4 py-3 text-xs font-mono text-amber-200">
+                <span>
+                  Los mensajes de esta conversación están pendientes de carga. Carga el historial antes de continuar.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRetryMessages}
+                  className="shrink-0 rounded border border-amber-700 bg-amber-900/40 px-2.5 py-1 text-[11px] text-amber-100 hover:bg-amber-900/70 transition-colors"
+                >
+                  Cargar mensajes de la conversación
+                </button>
+              </div>
+            )}
+
+          {currentSession.messagesStatus === "error" && currentSession.messagesError && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-800/80 bg-red-950/30 px-4 py-3 text-xs font-mono text-red-200">
+              <span>{currentSession.messagesError}</span>
+              <button
+                type="button"
+                onClick={handleRetryMessages}
+                className="shrink-0 rounded border border-red-700 bg-red-900/40 px-2.5 py-1 text-[11px] text-red-100 hover:bg-red-900/70 transition-colors"
+              >
+                Reintentar carga de mensajes
+              </button>
+            </div>
+          )}
+
+          {!isLoadingMessages &&
+            currentSession.messagesStatus !== "error" &&
+            messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center mt-16 sm:mt-20 text-center space-y-5">
+                <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-xl flex items-center justify-center shadow-sm">
+                  <Terminal className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-zinc-200 font-medium text-sm">
+                    {isUnauthenticated
+                      ? "Sesión no autenticada."
+                      : sessions.length === 0
+                        ? "No tienes conversaciones guardadas todavía."
+                        : "Núcleo conversacional inicializado."}
+                  </p>
+                  <p className="text-zinc-500 text-xs font-mono">
+                    {activeSessionId
+                      ? `Sesión: ${currentSession.id} · Frontera Zod activa`
+                      : "Envía tu primer mensaje o crea una nueva sesión para comenzar"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl pt-2">
+                  {QUICK_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      disabled={isSendDisabled}
+                      onClick={() => handleSend(prompt)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs text-zinc-300 transition-colors text-left disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{prompt}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
           {messages.map((msg) => (
             <ChatMessage
               key={msg.id}
@@ -384,7 +326,20 @@ export function ChatShell() {
               usage={msg.usage}
             />
           ))}
-          {isTyping && (
+
+          {currentSession.persistenceWarning && (
+            <div className="mt-2 rounded-lg border border-amber-800/80 bg-amber-950/30 px-4 py-2.5 text-xs font-mono text-amber-200">
+              {currentSession.persistenceWarning}
+            </div>
+          )}
+
+          {currentSession.sendError && (
+            <div className="mt-2 rounded-lg border border-red-800/80 bg-red-950/30 px-4 py-2.5 text-xs font-mono text-red-200">
+              {currentSession.sendError}
+            </div>
+          )}
+
+          {isSending && (
             <div className="flex w-full mb-2 justify-start">
               <div className="bg-zinc-900/50 text-zinc-400 border border-zinc-800 rounded-md px-4 py-3 text-xs font-mono animate-pulse">
                 Dante procesando...
@@ -396,9 +351,10 @@ export function ChatShell() {
 
       <div className="w-full border-t border-zinc-900 bg-zinc-950/80 backdrop-blur">
         <div className="max-w-4xl mx-auto">
-          <ChatComposer onSend={handleComposerSend} disabled={isTyping} />
+          <ChatComposer onSend={handleComposerSend} disabled={isSendDisabled} />
         </div>
       </div>
     </div>
   );
 }
+export default ChatShell;

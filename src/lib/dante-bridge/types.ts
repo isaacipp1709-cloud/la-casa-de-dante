@@ -9,6 +9,8 @@ import {
   DanteAnalyticsSchema,
   DanteConversationSchema,
   DanteConversationsResponseSchema,
+  DanteConversationMessageSchema,
+  DanteConversationMessagesResponseSchema,
   DanteLogEntrySchema,
   DanteLogsResponseSchema,
   DanteProviderStatusSchema,
@@ -30,6 +32,8 @@ export type DanteNeuronsResponse = z.infer<typeof DanteNeuronsResponseSchema>;
 export type DanteAnalytics = z.infer<typeof DanteAnalyticsSchema>;
 export type DanteConversation = z.infer<typeof DanteConversationSchema>;
 export type DanteConversationsResponse = z.infer<typeof DanteConversationsResponseSchema>;
+export type DanteConversationMessage = z.infer<typeof DanteConversationMessageSchema>;
+export type DanteConversationMessagesResponse = z.infer<typeof DanteConversationMessagesResponseSchema>;
 export type DanteLogEntry = z.infer<typeof DanteLogEntrySchema>;
 export type DanteLogsResponse = z.infer<typeof DanteLogsResponseSchema>;
 export type DanteProviderStatus = z.infer<typeof DanteProviderStatusSchema>;
