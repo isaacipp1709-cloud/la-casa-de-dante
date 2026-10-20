@@ -86,3 +86,52 @@ La Casa de Dante es la interfaz de usuario frontend y middleware de acceso de Da
 
 - **Unidad USB Externa:** **NO VERIFICADO**. No se inspeccionó ni validó ninguna unidad de almacenamiento USB física durante esta sesión.
 - **Accesos y Credenciales en el Equipo Prestado:** **NO RETIRADOS**. Los archivos de trabajo locales en Documentos y Escritorio, así como las credenciales de Isaac en el Administrador de Credenciales de Windows, continúan en este equipo. Isaac deberá cerrar sesión y retirar manualmente sus credenciales antes de devolver el computador.
+
+---
+
+## 7. Continuidad y Persistencia del Chat BYOK (2026-10-20)
+
+### Objetivo y Alcance
+Resolver las fallas de continuidad del hilo de conversación y la pérdida del estado de persistencia en el flujo de chat con credenciales BYOK (`ChatShell` → `/api/chat` / `/api/chat/credentials` → `credential-handlers` → `dante-bridge` → `Dante-AI-Core`), garantizando contratos tipados y seguridad de identidad sin modificar credenciales ni bases de datos.
+
+### Modificaciones Clave Implementadas
+
+1. **Propagación Integral de `conversationId`:**
+   - La interfaz (`ChatShell`) envía `conversationId` o `sessionId` en la carga útil.
+   - Los handlers `handleChatWithStoredCredentialFromBody` y `handleChatWithCredential` extraen y validan el identificador (`input.conversationId?.trim() || input.sessionId?.trim()`), reenviándolo a `executeChatWithCredential` y `core.chatWithStoredCredential`.
+   - `dante-bridge` (`chatWithStoredCredential`) formatea el encabezado HTTP estándar `X-Conversation-ID` con el ID resuelto. Si el caller no suministra ninguno, genera un UUID v4 criptográfico (`randomUUID()`), manteniendo retrocompatibilidad total con consumidores previos.
+
+2. **Propagación del Estado de Persistencia (`persistence`):**
+   - El Core responde con `persistence: 'saved' | 'unavailable' | 'disabled'`.
+   - Se actualizó el esquema Zod `DanteChatResponseSchema` (`src/contracts/dante.ts`) y la interfaz TypeScript `DanteChatResponse` (`src/lib/dante-bridge/client.ts`) para incluir `persistence?: 'saved' | 'unavailable' | 'disabled'`.
+   - Si el Core no informa el estado o emite un valor no reconocido, **no se inventa "saved"**: se deja como `undefined`.
+   - `credential-handlers` propaga `persistence` directamente en la respuesta JSON retornada a la interfaz.
+   - En `ChatShell`, si `data.persistence === 'unavailable'`, se activa la notificación de advertencia en la interfaz ("Advertencia: No se pudo guardar la conversación en el servidor"), asegurando visibilidad clara para el usuario sin bloquear el chat.
+
+3. **Prevención de Colisiones de Identificadores:**
+   - Se eliminaron los IDs estáticos fijos (como `conv-01-arquitectura`) y los generados mediante fragmentos de reloj `Date.now()` (`conv-${Date.now().toString().slice(-6)}` o `byok-${Date.now()}`).
+   - Toda generación de identificadores de sesión/conversación utiliza ahora UUID v4 universales (`crypto.randomUUID()` en navegador / `randomUUID()` en Node.js), previniendo solapamiento o colisiones en sesiones concurrentes.
+
+4. **Blindaje de Identidad de Servidor:**
+   - El `ownerId` proviene **exclusivamente** de la sesión autenticada validada en el servidor (`requireOwner`), impidiendo la inyección o suplantación de propietarios desde el cuerpo JSON de la petición HTTP (`body.ownerId` / `body.userId`).
+   - Se corrigió la validación de `credentialId` con `.trim()` para rechazar cadenas compuestas exclusivamente de espacios en blanco (`'   '`) con código HTTP 400 (`INVALID_REQUEST`).
+
+5. **Verificación Automatizada:**
+   - Se implementó la suite `tests/conversation-continuity.test.ts` con 11 escenarios cubriendo:
+     - Envío de `conversationId` hacia Core como `X-Conversation-ID`.
+     - Fallback de `sessionId` cuando `conversationId` no se envía.
+     - Fallback a UUID criptográfico sin colisión cuando no se envía ningún ID.
+     - Propagación de `persistence: 'saved'` y `persistence: 'unavailable'`.
+     - No invención de estado si Core no lo informa (`persistence: undefined`).
+     - Rechazo de `credentialId` vacío o con solo espacios.
+     - Paridad de propagación en endpoint `/api/chat/credentials`.
+     - Preservación estricta de `ownerId` de servidor contra inyecciones en el cuerpo.
+     - Transporte HTTP en `DanteBridgeImpl` con cabeceras `X-Conversation-ID` y aserción firmada HMAC (`x-dante-owner-assertion`).
+     - Generación de identificadores únicos distintos ante solicitudes sin ID (prevención de colisiones).
+     - Descarte de estados de persistencia desconocidos o no válidos.
+   - **Resultados:** 11/11 pruebas de continuidad pasando; suite completa de 24 archivos y 106 pruebas ejecutada exitosamente sin regresiones (`npm test`); chequeo estricto de tipos TypeScript sin errores (`npm run typecheck`).
+   - **Actualización y Cierre de Verificadores (`verify:*`):**
+     - `verify:bridge`: Adaptado al contrato de identidad firmada (`verifiedOwnerId`) con dependencias interceptadas en memoria (Código 0).
+     - `verify:chat-route`: Valida rechazo de llamadas anónimas (401 UNAUTHORIZED) y recorrido autorizado con fixtures de Supabase Auth en memoria, sin alterar `requireAuthorizedOwner` ni introducir bypasses (Código 0).
+     - `verify:chat-ui`: Adaptado a `authorizedFetch` (prohibiendo `fetch` plano hacia `/api/chat`), distinguiendo explícitamente auditoría estática de prueba de navegador interactiva (Código 0).
+   - **Revisión Git de Whitespace:** `core.whitespace` fue restaurado a su estado original desconfigurado (unset). La alerta en `git diff --check` se debe a los retornos de carro en el blob histórico `-text` de `index.ts` y no a espacios en blanco reales.

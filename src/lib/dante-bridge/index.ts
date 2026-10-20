@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ownerAssertionHeaders } from "@/lib/credentials/owner-assertion";
 import { isCoreMode } from "./bridge-mode";
 import { buildCoreChatHeaders } from "./chat-headers";
@@ -136,8 +137,8 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
     // Server-side toggle: local-core uses the real orchestrator
     if (this.isLocalCoreMode()) {
       try {
-        const conversationId = parsedRequest.data.conversationId
-          || parsedRequest.data.sessionId
+        const conversationId = parsedRequest.data.conversationId?.trim()
+          || parsedRequest.data.sessionId?.trim()
           || this.correlationGen.next("local");
 
         const ctx = parsedRequest.data.context;
@@ -230,14 +231,21 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
           .replace(/\n*\[System Context:\s*Financial calculations:\s*\{\s*\}\]/gi, "")
           .trim();
 
+        const rawPersistence = coreResponse.persistence;
+        const persistence: 'saved' | 'unavailable' | 'disabled' | undefined =
+          rawPersistence === 'saved' || rawPersistence === 'unavailable' || rawPersistence === 'disabled'
+            ? rawPersistence
+            : undefined;
+
         const mappedResponse: DanteChatResponse = {
           message: {
             role: coreResponse.choices[0].message.role as "assistant" | "user" | "system",
             content: cleanedContent || rawContent,
           },
           status: "success",
-          correlationId: coreResponse.conversationId || coreResponse.id,
+          correlationId: coreResponse.conversationId || coreResponse.id || conversationId,
           providerId: coreResponse.model,
+          persistence,
           usage: coreResponse.usage ? {
             promptTokens: coreResponse.usage.prompt_tokens,
             completionTokens: coreResponse.usage.completion_tokens,
@@ -613,6 +621,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
     if (Object.keys(assertion).length === 0) {
       throw new ValidationError({ identity: ['Identidad del usuario no disponible'] });
     }
+    const resolvedConversationId = input.conversationId?.trim() || randomUUID();
     const data = (await postToDanteCore(
       '/api/chat',
       {
@@ -625,7 +634,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
         ...assertion,
         'X-User-Timezone': input.timezone || 'America/Santiago',
         'X-User-Locale': input.locale || 'es-CL',
-        'X-Conversation-ID': input.conversationId || `byok-${Date.now()}`,
+        'X-Conversation-ID': resolvedConversationId,
       },
     )) as {
       id?: string;
@@ -633,17 +642,25 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
       conversationId?: string;
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
       choices?: Array<{ message?: { role?: string; content?: string } }>;
+      persistence?: string;
     };
 
     const rawContent = data?.choices?.[0]?.message?.content ?? '';
+    const rawPersistence = data?.persistence;
+    const persistence: 'saved' | 'unavailable' | 'disabled' | undefined =
+      rawPersistence === 'saved' || rawPersistence === 'unavailable' || rawPersistence === 'disabled'
+        ? rawPersistence
+        : undefined;
+
     const mapped: DanteChatResponse = {
       message: {
         role: (data?.choices?.[0]?.message?.role as 'assistant' | 'user' | 'system') || 'assistant',
         content: rawContent,
       },
       status: 'success',
-      correlationId: data?.conversationId || data?.id || `byok-${Date.now()}`,
+      correlationId: data?.conversationId || data?.id || resolvedConversationId,
       providerId: data?.model,
+      persistence,
       usage: data?.usage
         ? {
             promptTokens: data.usage.prompt_tokens ?? 0,

@@ -26,6 +26,7 @@ export interface DanteChatResponse {
     total_tokens: number;
   };
   conversationId?: string;
+  persistence?: 'saved' | 'unavailable' | 'disabled';
 }
 
 export interface HealthResponse {

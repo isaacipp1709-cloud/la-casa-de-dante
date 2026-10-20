@@ -32,6 +32,7 @@ export const DanteChatResponseSchema = z.object({
   correlationId: z.string(),
   providerId: z.string().optional(),
   model: z.string().optional(),
+  persistence: z.enum(["saved", "unavailable", "disabled"]).optional(),
   usage: z.object({
     promptTokens: z.number().int().nonnegative(),
     completionTokens: z.number().int().nonnegative(),

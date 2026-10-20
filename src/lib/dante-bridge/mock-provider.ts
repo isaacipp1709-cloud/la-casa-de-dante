@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   DanteChatRequest,
   DanteChatResponse,
@@ -659,6 +660,9 @@ export class MockDanteProvider {
     credentialId: string;
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
     model?: string;
+    conversationId?: string;
+    timezone?: string;
+    locale?: string;
   }) {
     const found = this.byokCredentials.get(input.credentialId);
     if (!found || found.ownerId !== input.ownerId) {
@@ -666,11 +670,13 @@ export class MockDanteProvider {
     }
     const lastUser = input.messages.filter((m) => m.role === 'user').pop();
     const content = `[Fallback Mock] El Core no esta disponible: no se ejecuto ${found.providerId}. Consulta: ${lastUser?.content ?? ''}`.trim();
+    const resolvedCorrelationId = input.conversationId?.trim() || randomUUID();
     const response: DanteChatResponse = {
       message: { role: 'assistant', content },
       status: 'success',
-      correlationId: `mock-byok-${Date.now().toString(36)}`,
+      correlationId: resolvedCorrelationId,
       providerId: 'mock',
+      persistence: 'disabled',
     };
     const parsed = DanteChatResponseSchema.safeParse(response);
     if (!parsed.success) throw new ValidationError(parsed.error.format());

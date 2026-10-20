@@ -26,6 +26,7 @@ export interface ChatResponseLike {
   correlationId: string;
   providerId?: string;
   model?: string;
+  persistence?: 'saved' | 'unavailable' | 'disabled';
 }
 
 /**
@@ -90,6 +91,16 @@ function fail(status: number, code: string, message: string): HandlerResult {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function extractConversationId(body: Record<string, unknown>): string | undefined {
+  if (typeof body.conversationId === 'string' && body.conversationId.trim().length > 0) {
+    return body.conversationId.trim();
+  }
+  if (typeof body.sessionId === 'string' && body.sessionId.trim().length > 0) {
+    return body.sessionId.trim();
+  }
+  return undefined;
 }
 
 const ALLOWED_ROLES: readonly ProviderRole[] = ['user', 'assistant', 'system'];
@@ -434,16 +445,30 @@ async function executeChatWithCredential(
   messages: Array<{ role: ProviderRole; content: string }>,
   model: string | undefined,
   deps: CredentialHandlerDeps,
+  conversationId?: string,
 ): Promise<
   | { ok: true; response: ChatResponseLike; viaCore: boolean }
   | { ok: false; result: HandlerResult }
 > {
   const viaCore = await tryCore(deps, (core) =>
-    core.chatWithStoredCredential({ ownerId, credentialId, messages, model }),
+    core.chatWithStoredCredential({ ownerId, credentialId, messages, model, conversationId }),
   );
   if (viaCore) {
     if (!viaCore.ok) return { ok: false, result: viaCore.result };
-    return { ok: true, response: viaCore.value, viaCore: true };
+    const rawPersistence = viaCore.value.persistence;
+    const persistence: 'saved' | 'unavailable' | 'disabled' | undefined =
+      rawPersistence === 'saved' || rawPersistence === 'unavailable' || rawPersistence === 'disabled'
+        ? rawPersistence
+        : undefined;
+
+    return {
+      ok: true,
+      response: {
+        ...viaCore.value,
+        persistence,
+      },
+      viaCore: true,
+    };
   }
 
   if (!deps.fallbackEnabled) {
@@ -472,9 +497,10 @@ async function executeChatWithCredential(
     response: {
       message: { role: 'assistant', content: run.execution.content },
       status: 'success',
-      correlationId: randomUUID(),
+      correlationId: conversationId || randomUUID(),
       providerId: run.execution.providerId,
       model: run.execution.model,
+      persistence: 'disabled',
     },
   };
 }
@@ -493,10 +519,11 @@ export async function handleChatWithCredential(
   const clientKey = rejectClientSuppliedApiKey(parsed.body);
   if (clientKey) return clientKey;
 
-  const credentialId = typeof parsed.body.credentialId === 'string' ? parsed.body.credentialId : '';
-  if (credentialId.length === 0) {
+  const rawCredentialId = typeof parsed.body.credentialId === 'string' ? parsed.body.credentialId.trim() : '';
+  if (rawCredentialId.length === 0) {
     return fail(400, 'INVALID_REQUEST', 'credentialId is required.');
   }
+  const credentialId = rawCredentialId;
 
   const messages = sanitizeMessages(parsed.body.messages);
   if (messages.length === 0) {
@@ -504,6 +531,7 @@ export async function handleChatWithCredential(
   }
 
   const requestedModel = typeof parsed.body.model === 'string' ? parsed.body.model : undefined;
+  const conversationId = extractConversationId(parsed.body);
   const executed = await executeChatWithCredential(
     request,
     owner.ownerId,
@@ -511,8 +539,15 @@ export async function handleChatWithCredential(
     messages,
     requestedModel,
     deps,
+    conversationId,
   );
   if (!executed.ok) return executed.result;
+
+  const rawPersistence = executed.response.persistence;
+  const persistence =
+    rawPersistence === 'saved' || rawPersistence === 'unavailable' || rawPersistence === 'disabled'
+      ? rawPersistence
+      : undefined;
 
   return {
     status: 200,
@@ -523,6 +558,7 @@ export async function handleChatWithCredential(
       credentialId,
       usedCredential: true,
       resolvedBy: executed.viaCore ? 'core' : 'memory-fallback',
+      ...(persistence ? { persistence } : {}),
     },
   };
 }
@@ -548,10 +584,11 @@ export async function handleChatWithStoredCredentialFromBody(
   const clientKey = rejectClientSuppliedApiKey(body);
   if (clientKey) return clientKey;
 
-  const credentialId = typeof body.credentialId === 'string' ? body.credentialId : '';
-  if (credentialId.length === 0) {
+  const rawCredentialId = typeof body.credentialId === 'string' ? body.credentialId.trim() : '';
+  if (rawCredentialId.length === 0) {
     return fail(400, 'INVALID_REQUEST', 'credentialId is required.');
   }
+  const credentialId = rawCredentialId;
 
   const messages = sanitizeMessages(body.messages);
   if (messages.length === 0) {
@@ -559,6 +596,7 @@ export async function handleChatWithStoredCredentialFromBody(
   }
 
   const requestedModel = typeof body.model === 'string' ? body.model : undefined;
+  const conversationId = extractConversationId(body);
   const executed = await executeChatWithCredential(
     request,
     owner.ownerId,
@@ -566,12 +604,19 @@ export async function handleChatWithStoredCredentialFromBody(
     messages,
     requestedModel,
     deps,
+    conversationId,
   );
   if (!executed.ok) return executed.result;
 
   if (executed.response.message.content.trim().length === 0) {
     return fail(502, 'PROVIDER_ERROR', 'The provider returned an empty response.');
   }
+
+  const rawPersistence = executed.response.persistence;
+  const persistence =
+    rawPersistence === 'saved' || rawPersistence === 'unavailable' || rawPersistence === 'disabled'
+      ? rawPersistence
+      : undefined;
 
   return {
     status: 200,
@@ -585,6 +630,7 @@ export async function handleChatWithStoredCredentialFromBody(
       correlationId: executed.response.correlationId,
       providerId: executed.response.providerId,
       model: executed.response.model,
+      ...(persistence ? { persistence } : {}),
     },
   };
 }

@@ -35,13 +35,31 @@ const QUICK_PROMPTS = [
   "Resume las políticas de seguridad $0 Tier activas",
 ];
 
-const INITIAL_SESSIONS: SessionThread[] = [
-  {
-    id: "conv-01-arquitectura",
-    title: "Sesión Activa · Centro de Mando",
-    updatedAt: new Date().toISOString(),
-    messages: [],
-  },
+function generateThreadId(): string {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const buffer = new Uint8Array(16);
+      crypto.getRandomValues(buffer);
+      buffer[6] = (buffer[6] & 0x0f) | 0x40; // RFC 4122 v4
+      buffer[8] = (buffer[8] & 0x3f) | 0x80; // RFC 4122 variant
+      const hex = Array.from(buffer, (b) => b.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+  }
+  throw new Error("Generador criptográfico no disponible para identificadores de conversación.");
+}
+
+function createDefaultSessions(): SessionThread[] {
+  return [
+    {
+      id: generateThreadId(),
+      title: "Sesión Activa · Centro de Mando",
+      updatedAt: new Date().toISOString(),
+      messages: [],
+    },
   {
     id: "conv-02-neuronas",
     title: "Auditoría 37 Neuronas Cognitivas",
@@ -69,7 +87,8 @@ const INITIAL_SESSIONS: SessionThread[] = [
       },
     ],
   },
-];
+  ];
+}
 
 const CHAT_ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND:
@@ -102,8 +121,8 @@ const getSafeErrorMessage = (status: number, code?: string) => {
 };
 
 export function ChatShell() {
-  const [sessions, setSessions] = useState<SessionThread[]>(INITIAL_SESSIONS);
-  const [activeSessionId, setActiveSessionId] = useState<string>(INITIAL_SESSIONS[0].id);
+  const [sessions, setSessions] = useState<SessionThread[]>(createDefaultSessions);
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => sessions[0]?.id ?? generateThreadId());
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -133,10 +152,10 @@ export function ChatShell() {
   };
 
   const handleNewSession = () => {
-    const newId = `conv-${Date.now().toString().slice(-6)}`;
+    const newId = generateThreadId();
     const newThread: SessionThread = {
       id: newId,
-      title: `Sesión ${newId}`,
+      title: "Nueva conversación",
       updatedAt: new Date().toISOString(),
       messages: [],
     };
