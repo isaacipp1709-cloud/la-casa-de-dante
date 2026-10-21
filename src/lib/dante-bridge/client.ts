@@ -1,4 +1,35 @@
-const DANTE_CORE_URL = process.env.DANTE_CORE_URL || 'http://localhost:3001';
+/**
+ * Normaliza la URL base de Dante-AI-Core:
+ * - Recorta espacios en blanco al inicio y al final.
+ * - Elimina barras finales redundantes para evitar rutas malformadas (p. ej. //api/chat).
+ * - Aplica el valor por defecto ('http://localhost:3001') si la entrada es nula o vacía.
+ */
+export function normalizeCoreUrl(url?: string | null): string {
+  const fallback = 'http://localhost:3001';
+  if (!url || typeof url !== 'string') return fallback;
+  const trimmed = url.trim();
+  if (!trimmed) return fallback;
+  return trimmed.replace(/\/+$/, '');
+}
+
+/**
+ * Resuelve la URL base vigente normalizada desde process.env.DANTE_CORE_URL.
+ */
+export function getDanteCoreUrl(): string {
+  return normalizeCoreUrl(process.env.DANTE_CORE_URL);
+}
+
+/**
+ * Construye una URL completa y sanitizada hacia un endpoint del Core,
+ * garantizando que nunca se produzcan dobles barras diagonales.
+ */
+export function buildCoreEndpointUrl(endpointPath: string, baseUrl?: string): string {
+  const base = normalizeCoreUrl(baseUrl ?? process.env.DANTE_CORE_URL);
+  const normalizedPath = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+  return `${base}${normalizedPath}`;
+}
+
+export const DANTE_CORE_URL = getDanteCoreUrl();
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export interface Message {
@@ -47,7 +78,7 @@ export async function chatWithDante(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${DANTE_CORE_URL}/api/chat`, {
+    const res = await fetch(buildCoreEndpointUrl('/api/chat'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -109,7 +140,7 @@ export async function checkDanteHealth(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${DANTE_CORE_URL}/api/health`, {
+    const res = await fetch(buildCoreEndpointUrl('/api/health'), {
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -136,7 +167,7 @@ export async function fetchFromDanteCore(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${DANTE_CORE_URL}${endpointPath}`, {
+    const res = await fetch(buildCoreEndpointUrl(endpointPath), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -176,7 +207,7 @@ export async function postToDanteCore(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${DANTE_CORE_URL}${endpointPath}`, {
+    const res = await fetch(buildCoreEndpointUrl(endpointPath), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -213,7 +244,7 @@ export async function deleteFromDanteCore(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${DANTE_CORE_URL}${endpointPath}`, {
+    const res = await fetch(buildCoreEndpointUrl(endpointPath), {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

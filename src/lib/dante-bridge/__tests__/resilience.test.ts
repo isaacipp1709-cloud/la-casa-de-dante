@@ -1,6 +1,12 @@
 import { describe, it, mock, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { chatWithDante, chatWithDanteWithRetry } from '../client';
+import {
+  chatWithDante,
+  chatWithDanteWithRetry,
+  normalizeCoreUrl,
+  buildCoreEndpointUrl,
+  getDanteCoreUrl,
+} from '../client';
 import { DanteBridgeImpl } from '../index';
 
 describe('Dante Bridge Resilience', () => {
@@ -118,5 +124,71 @@ describe('Dante Bridge Resilience', () => {
     assert.ok(!res.message.content.includes('[System Context:'));
     assert.ok(res.message.content.includes('37 neuronas'));
     delete process.env.DANTE_MODE;
+  });
+  describe('URL Normalization', () => {
+    it('normalizeCoreUrl recorta espacios y remueve barras finales', () => {
+      assert.strictEqual(
+        normalizeCoreUrl('  https://dante-ai-core.vercel.app/  '),
+        'https://dante-ai-core.vercel.app'
+      );
+      assert.strictEqual(
+        normalizeCoreUrl('https://dante-ai-core.vercel.app///'),
+        'https://dante-ai-core.vercel.app'
+      );
+      assert.strictEqual(
+        normalizeCoreUrl('https://dante-ai-core.vercel.app'),
+        'https://dante-ai-core.vercel.app'
+      );
+    });
+
+    it('normalizeCoreUrl usa fallback cuando la entrada es nula o vacia', () => {
+      assert.strictEqual(normalizeCoreUrl(''), 'http://localhost:3001');
+      assert.strictEqual(normalizeCoreUrl('   '), 'http://localhost:3001');
+      assert.strictEqual(normalizeCoreUrl(null), 'http://localhost:3001');
+      assert.strictEqual(normalizeCoreUrl(undefined), 'http://localhost:3001');
+    });
+
+    it('buildCoreEndpointUrl evita dobles barras diagonales', () => {
+      assert.strictEqual(
+        buildCoreEndpointUrl('/api/chat', 'https://dante-ai-core.vercel.app/'),
+        'https://dante-ai-core.vercel.app/api/chat'
+      );
+      assert.strictEqual(
+        buildCoreEndpointUrl('api/chat', 'https://dante-ai-core.vercel.app/'),
+        'https://dante-ai-core.vercel.app/api/chat'
+      );
+      assert.strictEqual(
+        buildCoreEndpointUrl('/api/health', 'https://dante-ai-core.vercel.app'),
+        'https://dante-ai-core.vercel.app/api/health'
+      );
+    });
+
+    it('chatWithDante despacha fetch a la URL normalizada aun con espacios y barra final en env', async () => {
+      const prevEnv = process.env.DANTE_CORE_URL;
+      process.env.DANTE_CORE_URL = '  https://dante-preview.vercel.app/  ';
+
+      let requestedUrl = '';
+      mock.method(global, 'fetch', async (url: string | URL) => {
+        requestedUrl = String(url);
+        return {
+          ok: true,
+          json: async () => ({
+            id: 'norm-1',
+            choices: [{ message: { role: 'assistant', content: 'normalizado' } }],
+          }),
+        };
+      });
+
+      try {
+        await chatWithDante([{ role: 'user', content: 'test' }]);
+        assert.strictEqual(requestedUrl, 'https://dante-preview.vercel.app/api/chat');
+      } finally {
+        if (prevEnv !== undefined) {
+          process.env.DANTE_CORE_URL = prevEnv;
+        } else {
+          delete process.env.DANTE_CORE_URL;
+        }
+      }
+    });
   });
 });
