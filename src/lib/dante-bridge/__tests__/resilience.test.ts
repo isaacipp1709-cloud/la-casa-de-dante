@@ -182,6 +182,7 @@ describe('Dante Bridge Resilience', () => {
       try {
         await chatWithDante([{ role: 'user', content: 'test' }]);
         assert.strictEqual(requestedUrl, 'https://dante-preview.vercel.app/api/chat');
+        assert.strictEqual(getDanteCoreUrl(), 'https://dante-preview.vercel.app');
       } finally {
         if (prevEnv !== undefined) {
           process.env.DANTE_CORE_URL = prevEnv;
