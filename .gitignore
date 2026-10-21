@@ -36,3 +36,8 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Graphify Cache
+graphify-out/cache/
+graphify-out/*.sig
+graphify-out/*.pending.json

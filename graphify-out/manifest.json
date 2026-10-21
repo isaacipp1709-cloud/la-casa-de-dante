@@ -1,0 +1,836 @@
+{
+  ".eslintrc.json": {
+    "mtime": 1792118728.3581278,
+    "seen": 1792623351.8630686,
+    "ast_hash": "f09740d526f714b8a04de7631b2e9c50",
+    "semantic_hash": ""
+  },
+  "jest.config.js": {
+    "mtime": 1792118728.3641815,
+    "seen": 1792623351.8630686,
+    "ast_hash": "de794dab6417278e05994ecda6e6aedb",
+    "semantic_hash": ""
+  },
+  "next-env.d.ts": {
+    "mtime": 1792118728.3651814,
+    "seen": 1792623351.8630686,
+    "ast_hash": "187b4b5b507c358a018aeeadd81abe57",
+    "semantic_hash": ""
+  },
+  "next.config.mjs": {
+    "mtime": 1792118728.3651814,
+    "seen": 1792623351.8630686,
+    "ast_hash": "0d80c759925843d35262b62ee0c92b5d",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1792603416.9800727,
+    "seen": 1792623351.8630686,
+    "ast_hash": "2ed54a6af958dc8be29e2477f76a6c0c",
+    "semantic_hash": ""
+  },
+  "postcss.config.mjs": {
+    "mtime": 1792118728.3681817,
+    "seen": 1792623351.8630686,
+    "ast_hash": "3507368dae6e94b0070b0a10efa15a05",
+    "semantic_hash": ""
+  },
+  "scripts/verify-bridge.ts": {
+    "mtime": 1792562926.949259,
+    "seen": 1792623351.8630686,
+    "ast_hash": "fd8614dfb1d6cae512e40c85d431ae12",
+    "semantic_hash": ""
+  },
+  "scripts/verify-chat-route.ts": {
+    "mtime": 1792562926.9512644,
+    "seen": 1792623351.8630686,
+    "ast_hash": "f5e61debbe7036f5bc571fa6f1dcee5f",
+    "semantic_hash": ""
+  },
+  "scripts/verify-chat-ui.ts": {
+    "mtime": 1792562926.9522643,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d2b07a44dcefecdc70f36893ca0fc100",
+    "semantic_hash": ""
+  },
+  "src/app/api/analytics/route.ts": {
+    "mtime": 1792562926.953266,
+    "seen": 1792623351.8630686,
+    "ast_hash": "e02f88dcd8822d8bce56575a6912340d",
+    "semantic_hash": ""
+  },
+  "src/app/api/chat/credentials/route.ts": {
+    "mtime": 1792562926.954266,
+    "seen": 1792623351.8630686,
+    "ast_hash": "bac9a0bcc815960a1c02afaf55ef23d5",
+    "semantic_hash": ""
+  },
+  "src/app/api/chat/route.ts": {
+    "mtime": 1792619276.9397335,
+    "seen": 1792623351.8630686,
+    "ast_hash": "cade1404e267c239bf026ae2121b5b16",
+    "semantic_hash": ""
+  },
+  "src/app/api/connections/available/route.ts": {
+    "mtime": 1792562926.9572618,
+    "seen": 1792623351.8630686,
+    "ast_hash": "bab02e6db1a5865fc34487106755f732",
+    "semantic_hash": ""
+  },
+  "src/app/api/connections/providers/route.ts": {
+    "mtime": 1792562926.9587843,
+    "seen": 1792623351.8630686,
+    "ast_hash": "b942f6914b1bd7978e95c4eb5bbf061b",
+    "semantic_hash": ""
+  },
+  "src/app/api/connections/route.ts": {
+    "mtime": 1792562926.9597862,
+    "seen": 1792623351.8630686,
+    "ast_hash": "734d36275cac2b82a2ac716f6e3ce126",
+    "semantic_hash": ""
+  },
+  "src/app/api/connections/status/route.ts": {
+    "mtime": 1792562926.9608016,
+    "seen": 1792623351.8630686,
+    "ast_hash": "58c6e23dd6c6c440d7ddc11ad5a1ba4e",
+    "semantic_hash": ""
+  },
+  "src/app/api/conversations/[id]/messages/route.ts": {
+    "mtime": 1792562926.9627998,
+    "seen": 1792623351.8630686,
+    "ast_hash": "14fa129cd7096226011d25cf87e94e68",
+    "semantic_hash": ""
+  },
+  "src/app/api/conversations/route.ts": {
+    "mtime": 1792618959.9272585,
+    "seen": 1792623351.8630686,
+    "ast_hash": "83c7621f2b535b10fcbb22e9ccf7595c",
+    "semantic_hash": ""
+  },
+  "src/app/api/credentials/[credentialId]/route.ts": {
+    "mtime": 1792562926.965799,
+    "seen": 1792623351.8630686,
+    "ast_hash": "2fe018a96663cf568df9a192885634b9",
+    "semantic_hash": ""
+  },
+  "src/app/api/credentials/route.ts": {
+    "mtime": 1792562926.9668014,
+    "seen": 1792623351.8630686,
+    "ast_hash": "6d983f8275b81a4b41ee673fb68bc393",
+    "semantic_hash": ""
+  },
+  "src/app/api/database/status/route.ts": {
+    "mtime": 1792616414.1700826,
+    "seen": 1792623351.8630686,
+    "ast_hash": "29b429310f7eb24734d4b34ca0ed325e",
+    "semantic_hash": ""
+  },
+  "src/app/api/health/route.ts": {
+    "mtime": 1792118728.375584,
+    "seen": 1792623351.8630686,
+    "ast_hash": "677bfa54c631034ef6fac19a4c80ae01",
+    "semantic_hash": ""
+  },
+  "src/app/api/logs/route.ts": {
+    "mtime": 1792562926.9668014,
+    "seen": 1792623351.8630686,
+    "ast_hash": "ac5e274b529b69df3c62d1343618bf0c",
+    "semantic_hash": ""
+  },
+  "src/app/api/neurons/route.ts": {
+    "mtime": 1792562926.9683113,
+    "seen": 1792623351.8630686,
+    "ast_hash": "eafc71b8a6483aa385c08e8af38c60c1",
+    "semantic_hash": ""
+  },
+  "src/app/api/providers/route.ts": {
+    "mtime": 1792603416.9800727,
+    "seen": 1792623351.8630686,
+    "ast_hash": "053370099a1847da306fb9d752830f66",
+    "semantic_hash": ""
+  },
+  "src/app/auth/callback/page.tsx": {
+    "mtime": 1792562926.971331,
+    "seen": 1792623351.8630686,
+    "ast_hash": "59449f0fbc41633fc3b7d558d1008ea4",
+    "semantic_hash": ""
+  },
+  "src/app/connections/page.tsx": {
+    "mtime": 1792562926.9723382,
+    "seen": 1792623351.8630686,
+    "ast_hash": "2db72216301847f712c9afb51fdbf149",
+    "semantic_hash": ""
+  },
+  "src/app/crm/page.tsx": {
+    "mtime": 1792622206.5950327,
+    "seen": 1792623351.8630686,
+    "ast_hash": "b135fd6ad22da59a3b21a689bbe685d5",
+    "semantic_hash": ""
+  },
+  "src/app/dashboard/page.tsx": {
+    "mtime": 1792562926.9743335,
+    "seen": 1792623351.8630686,
+    "ast_hash": "78dae1435de8af6d89e5fbbe52aef7c0",
+    "semantic_hash": ""
+  },
+  "src/app/dashboard/providers/page.tsx": {
+    "mtime": 1792562926.9753332,
+    "seen": 1792623351.8630686,
+    "ast_hash": "1f947bd7e4a5b69d436a69cc0ebd5245",
+    "semantic_hash": ""
+  },
+  "src/app/database/page.tsx": {
+    "mtime": 1792616183.3758514,
+    "seen": 1792623351.8630686,
+    "ast_hash": "6740cd9423cdd0ba9b2248a05f1c8178",
+    "semantic_hash": ""
+  },
+  "src/app/layout.tsx": {
+    "mtime": 1792118728.37758,
+    "seen": 1792623351.8630686,
+    "ast_hash": "6e7e0a48a2b578a500000d17f602b0b3",
+    "semantic_hash": ""
+  },
+  "src/app/live-apis/page.tsx": {
+    "mtime": 1792622206.6005301,
+    "seen": 1792623351.8630686,
+    "ast_hash": "4e1888af27cffeaba4cfcdbde59fee78",
+    "semantic_hash": ""
+  },
+  "src/app/login/page.tsx": {
+    "mtime": 1792562926.976331,
+    "seen": 1792623351.8630686,
+    "ast_hash": "a75ccb498926332fb929a86853792529",
+    "semantic_hash": ""
+  },
+  "src/app/logs/page.tsx": {
+    "mtime": 1792562926.977337,
+    "seen": 1792623351.8630686,
+    "ast_hash": "41494497b058b480b56f9691c138fc0c",
+    "semantic_hash": ""
+  },
+  "src/app/neurons/page.tsx": {
+    "mtime": 1792616303.7807193,
+    "seen": 1792623351.8630686,
+    "ast_hash": "c24c9bab25c4644f8124a6d86b138b14",
+    "semantic_hash": ""
+  },
+  "src/app/page.tsx": {
+    "mtime": 1792118728.37758,
+    "seen": 1792623351.8630686,
+    "ast_hash": "52cd74b3a5206a21a3c5e1e811dd79b4",
+    "semantic_hash": ""
+  },
+  "src/components/chat/chat-composer.tsx": {
+    "mtime": 1792619048.4173396,
+    "seen": 1792623351.8630686,
+    "ast_hash": "bf9bdedb4d3fd3600d259ab39c76d811",
+    "semantic_hash": ""
+  },
+  "src/components/chat/chat-history-state.ts": {
+    "mtime": 1792562926.981873,
+    "seen": 1792623351.8630686,
+    "ast_hash": "826188315e4a08ada3e60d26755877f3",
+    "semantic_hash": ""
+  },
+  "src/components/chat/chat-message.tsx": {
+    "mtime": 1792562926.9828694,
+    "seen": 1792623351.8630686,
+    "ast_hash": "e6c05e4feb6487feeda92fe720c9ed2c",
+    "semantic_hash": ""
+  },
+  "src/components/chat/chat-shell.tsx": {
+    "mtime": 1792619123.5193863,
+    "seen": 1792623351.8630686,
+    "ast_hash": "ed781cf055b2a089096fd286f8d30a6c",
+    "semantic_hash": ""
+  },
+  "src/components/chat/credential-selector.tsx": {
+    "mtime": 1792562926.984857,
+    "seen": 1792623351.8630686,
+    "ast_hash": "ace75472381c62798fa1a802c3114fa1",
+    "semantic_hash": ""
+  },
+  "src/components/chat/provider-selector.tsx": {
+    "mtime": 1792619296.212066,
+    "seen": 1792623351.8630686,
+    "ast_hash": "4ee079915fb3fdb00766a951586d1327",
+    "semantic_hash": ""
+  },
+  "src/components/connections/connections-panel.tsx": {
+    "mtime": 1792562926.9868963,
+    "seen": 1792623351.8630686,
+    "ast_hash": "0cf7210e3416cd4a795a7e27ffc4d9d5",
+    "semantic_hash": ""
+  },
+  "src/components/credentials/credential-manager.tsx": {
+    "mtime": 1792562926.9868963,
+    "seen": 1792623351.8630686,
+    "ast_hash": "fccb1d30ef46e04f604e0548c6c6160b",
+    "semantic_hash": ""
+  },
+  "src/components/layout/main-layout.tsx": {
+    "mtime": 1792118728.3908904,
+    "seen": 1792623351.8630686,
+    "ast_hash": "5d397cf670257a294678da567f211fbc",
+    "semantic_hash": ""
+  },
+  "src/components/layout/status-bar.tsx": {
+    "mtime": 1792616358.8527327,
+    "seen": 1792623351.8630686,
+    "ast_hash": "b72a1518346cc945327100602735e245",
+    "semantic_hash": ""
+  },
+  "src/components/navigation/sidebar-nav.tsx": {
+    "mtime": 1792622083.2909205,
+    "seen": 1792623351.8630686,
+    "ast_hash": "16d0e6b0b68fe449a021e8aa5e5b1123",
+    "semantic_hash": ""
+  },
+  "src/components/system/session-notice.tsx": {
+    "mtime": 1792562926.989419,
+    "seen": 1792623351.8630686,
+    "ast_hash": "7a45896da82751292c67ff5948b53d80",
+    "semantic_hash": ""
+  },
+  "src/components/system/system-status-panel.tsx": {
+    "mtime": 1792619311.5437179,
+    "seen": 1792623351.8630686,
+    "ast_hash": "64e64785f9e7a600b3a6eb474e982442",
+    "semantic_hash": ""
+  },
+  "src/contracts/audit.ts": {
+    "mtime": 1792118728.393999,
+    "seen": 1792623351.8630686,
+    "ast_hash": "7bd5f7699d59cc5bb7ce58f215e08f6e",
+    "semantic_hash": ""
+  },
+  "src/contracts/connections.ts": {
+    "mtime": 1792562926.9924567,
+    "seen": 1792623351.8630686,
+    "ast_hash": "b0791f2fc16238206ef95591efc2afea",
+    "semantic_hash": ""
+  },
+  "src/contracts/dante.ts": {
+    "mtime": 1792562926.9934156,
+    "seen": 1792623351.8630686,
+    "ast_hash": "5f1bdb286d21580ab66c7c0ccffa75fa",
+    "semantic_hash": ""
+  },
+  "src/contracts/errors.ts": {
+    "mtime": 1792118728.3949966,
+    "seen": 1792623351.8630686,
+    "ast_hash": "3ed33aa55c1f9587186665c61b422edf",
+    "semantic_hash": ""
+  },
+  "src/lib/auth/authorized-owner.ts": {
+    "mtime": 1792562926.995417,
+    "seen": 1792623351.8630686,
+    "ast_hash": "5a91e2752e1df91624829ef736cde179",
+    "semantic_hash": ""
+  },
+  "src/lib/auth/client-session.ts": {
+    "mtime": 1792603416.9881403,
+    "seen": 1792623351.8630686,
+    "ast_hash": "89399b440756af551cc420be7ec965fc",
+    "semantic_hash": ""
+  },
+  "src/lib/auth/github-oauth.ts": {
+    "mtime": 1792562926.9974282,
+    "seen": 1792623351.8630686,
+    "ast_hash": "4a8df10cd85b58ad80c66cf998b94333",
+    "semantic_hash": ""
+  },
+  "src/lib/auth/require-owner.ts": {
+    "mtime": 1792562926.9984534,
+    "seen": 1792623351.8630686,
+    "ast_hash": "3637e5059e8597c54a66cb5c3e924081",
+    "semantic_hash": ""
+  },
+  "src/lib/auth/server-owner.ts": {
+    "mtime": 1792562926.9995768,
+    "seen": 1792623351.8630686,
+    "ast_hash": "44e1c04ad79077198b8c01c58440d984",
+    "semantic_hash": ""
+  },
+  "src/lib/connections/connection-panel.ts": {
+    "mtime": 1792562927.000578,
+    "seen": 1792623351.8630686,
+    "ast_hash": "cb34d395f0d4e95a0293c201735a2adb",
+    "semantic_hash": ""
+  },
+  "src/lib/connections/mock-connections.ts": {
+    "mtime": 1792562927.0016038,
+    "seen": 1792623351.8630686,
+    "ast_hash": "7eb27ba3cfed23f7de7d5e42fde6d87b",
+    "semantic_hash": ""
+  },
+  "src/lib/credentials/credential-store.ts": {
+    "mtime": 1792562927.0025778,
+    "seen": 1792623351.8630686,
+    "ast_hash": "1e0090ca3a3f0f8e4a7b7b048f38ee5f",
+    "semantic_hash": ""
+  },
+  "src/lib/credentials/owner-assertion.ts": {
+    "mtime": 1792562927.003602,
+    "seen": 1792623351.8630686,
+    "ast_hash": "a8d3bf073d4e2835468614b4af9d93f0",
+    "semantic_hash": ""
+  },
+  "src/lib/credentials/provider-catalog.ts": {
+    "mtime": 1792603416.9881403,
+    "seen": 1792623351.8630686,
+    "ast_hash": "cfe38f995c9734a56228e1f5e114ca58",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/__tests__/resilience.test.ts": {
+    "mtime": 1792562927.0055764,
+    "seen": 1792623351.8630686,
+    "ast_hash": "98b590299be827b93a25619142658880",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/bridge-mode.ts": {
+    "mtime": 1792562927.006575,
+    "seen": 1792623351.8630686,
+    "ast_hash": "87f3c4e93003a22a27b11c46ac1f8771",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/chat-headers.ts": {
+    "mtime": 1792562927.007577,
+    "seen": 1792623351.8630686,
+    "ast_hash": "762bb5aad8f893953379e3d93098bd67",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/client.ts": {
+    "mtime": 1792562927.0091271,
+    "seen": 1792623351.8630686,
+    "ast_hash": "b48fbbf326889ac04dd04307e973001a",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/errors.ts": {
+    "mtime": 1792118728.3969958,
+    "seen": 1792623351.8630686,
+    "ast_hash": "e34fa341f1f9e4e4d838987a3ee0f103",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/index.ts": {
+    "mtime": 1792562927.0101316,
+    "seen": 1792623351.8630686,
+    "ast_hash": "c8777e3b2809ab9acb0729c394d3e401",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/mock-provider.ts": {
+    "mtime": 1792562927.012127,
+    "seen": 1792623351.8630686,
+    "ast_hash": "318fa1957906ed70c6d714b4b9cfebe9",
+    "semantic_hash": ""
+  },
+  "src/lib/dante-bridge/types.ts": {
+    "mtime": 1792562927.0131354,
+    "seen": 1792623351.8630686,
+    "ast_hash": "65fec464f33cc78562fbd7206815934b",
+    "semantic_hash": ""
+  },
+  "src/lib/orchestrator/ports/audit-log.port.ts": {
+    "mtime": 1792118728.3991725,
+    "seen": 1792623351.8630686,
+    "ast_hash": "cc92c7e1c6a18eb3e887606cd813a16d",
+    "semantic_hash": ""
+  },
+  "src/lib/orchestrator/ports/correlation-id.port.ts": {
+    "mtime": 1792118728.3991725,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d06212a22546d6193ed85273475a5b1f",
+    "semantic_hash": ""
+  },
+  "src/lib/orchestrator/ports/llm-gateway.port.ts": {
+    "mtime": 1792118728.4001665,
+    "seen": 1792623351.8630686,
+    "ast_hash": "f0f197c6702bb2567d480ab5c7e1b155",
+    "semantic_hash": ""
+  },
+  "src/lib/providers/gemini.ts": {
+    "mtime": 1792562927.01465,
+    "seen": 1792623351.8630686,
+    "ast_hash": "dfadf0ecea4ce30a43cb7fb85585d219",
+    "semantic_hash": ""
+  },
+  "src/lib/providers/huggingface.ts": {
+    "mtime": 1792118728.4011722,
+    "seen": 1792623351.8630686,
+    "ast_hash": "4630146e062ccab286c27f2c0423eb02",
+    "semantic_hash": ""
+  },
+  "src/lib/providers/ollama.ts": {
+    "mtime": 1792118728.4011722,
+    "seen": 1792623351.8630686,
+    "ast_hash": "26e32789c32dec52092b02d43317aa32",
+    "semantic_hash": ""
+  },
+  "src/lib/services/credential-handlers.ts": {
+    "mtime": 1792562927.0156894,
+    "seen": 1792623351.8630686,
+    "ast_hash": "94f392f8816f3f62d4a4ba0c934c3b21",
+    "semantic_hash": ""
+  },
+  "src/lib/services/credential-runtime.ts": {
+    "mtime": 1792562927.0172274,
+    "seen": 1792623351.8630686,
+    "ast_hash": "6dee6367bf84bcc72ea592aee1816976",
+    "semantic_hash": ""
+  },
+  "src/lib/services/credential-service.ts": {
+    "mtime": 1792562927.018267,
+    "seen": 1792623351.8630686,
+    "ast_hash": "aa29b119e21e48e8ae9db363f028a8bd",
+    "semantic_hash": ""
+  },
+  "src/lib/services/provider-adapters.ts": {
+    "mtime": 1792562927.018267,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d3511ed594ab278e61962dadb555f6bd",
+    "semantic_hash": ""
+  },
+  "src/lib/services/provider-dispatch.ts": {
+    "mtime": 1792562927.019624,
+    "seen": 1792623351.8630686,
+    "ast_hash": "2258a7f7b693ae961a67d0b77fd606cc",
+    "semantic_hash": ""
+  },
+  "src/lib/services/provider-errors.ts": {
+    "mtime": 1792562927.020623,
+    "seen": 1792623351.8630686,
+    "ast_hash": "1a216e698856ef1ba25e9f1b42a8fb50",
+    "semantic_hash": ""
+  },
+  "tailwind.config.ts": {
+    "mtime": 1792118728.4021726,
+    "seen": 1792623351.8630686,
+    "ast_hash": "03c0650dff8af0d46a923b3c523b01ed",
+    "semantic_hash": ""
+  },
+  "tests/auth-authorization.test.ts": {
+    "mtime": 1792562927.0216231,
+    "seen": 1792623351.8630686,
+    "ast_hash": "81c41b739f6d31b557bc51e82292ab88",
+    "semantic_hash": ""
+  },
+  "tests/auth-callback.test.ts": {
+    "mtime": 1792562927.0226278,
+    "seen": 1792623351.8630686,
+    "ast_hash": "ba91e027a17d7697e2cf3403f8c84791",
+    "semantic_hash": ""
+  },
+  "tests/catalogo-real.test.ts": {
+    "mtime": 1792562927.0236247,
+    "seen": 1792623351.8630686,
+    "ast_hash": "a71300e113ac68639d4d47e666a1b5bd",
+    "semantic_hash": ""
+  },
+  "tests/chat-credential-flow.test.ts": {
+    "mtime": 1792562927.024627,
+    "seen": 1792623351.8630686,
+    "ast_hash": "9c76833f66cb9bf5220ffceb94354434",
+    "semantic_hash": ""
+  },
+  "tests/connections-panel.test.ts": {
+    "mtime": 1792562927.0266623,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d853d9182d84e738e736c54d1eb9737c",
+    "semantic_hash": ""
+  },
+  "tests/conversation-continuity.test.ts": {
+    "mtime": 1792562927.0266623,
+    "seen": 1792623351.8630686,
+    "ast_hash": "8460d9aaa64f92ce78785c0ccdb949cc",
+    "semantic_hash": ""
+  },
+  "tests/conversation-history.test.ts": {
+    "mtime": 1792562927.0281768,
+    "seen": 1792623351.8630686,
+    "ast_hash": "8b1ac3cb59a732171090a721bf11a95d",
+    "semantic_hash": ""
+  },
+  "tests/credential-core-flow.test.ts": {
+    "mtime": 1792562927.0291903,
+    "seen": 1792623351.8630686,
+    "ast_hash": "95ec985648fdd2f068691184ede30181",
+    "semantic_hash": ""
+  },
+  "tests/credential-management.test.ts": {
+    "mtime": 1792603416.9881403,
+    "seen": 1792623351.8630686,
+    "ast_hash": "612da33f43a2325b0051ea45d1e0e30d",
+    "semantic_hash": ""
+  },
+  "tests/credential-production-guards.test.ts": {
+    "mtime": 1792562927.0318584,
+    "seen": 1792623351.8630686,
+    "ast_hash": "75cc84f38c8cdaabebff6ae3facbe651",
+    "semantic_hash": ""
+  },
+  "tests/credential-service.test.ts": {
+    "mtime": 1792562927.032856,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d4be70c8a7411bbb7246f24f7ce8625d",
+    "semantic_hash": ""
+  },
+  "tests/credential-store.test.ts": {
+    "mtime": 1792562927.0338213,
+    "seen": 1792623351.8630686,
+    "ast_hash": "79b5aad0d23d08205856f135c7278d60",
+    "semantic_hash": ""
+  },
+  "tests/provider-dispatch.test.ts": {
+    "mtime": 1792562927.034826,
+    "seen": 1792623351.8630686,
+    "ast_hash": "61fbd5599f944ff445bb0293c377409c",
+    "semantic_hash": ""
+  },
+  "tests/provider-selection.test.ts": {
+    "mtime": 1792562927.034826,
+    "seen": 1792623351.8630686,
+    "ast_hash": "a95211be02139d7eb5609ae8df3d9bab",
+    "semantic_hash": ""
+  },
+  "tests/public-terminal-security.test.ts": {
+    "mtime": 1792603416.9881403,
+    "seen": 1792623351.8630686,
+    "ast_hash": "8ffa153a080c714a74d62ed8660d8229",
+    "semantic_hash": ""
+  },
+  "tests/security-hardening.test.ts": {
+    "mtime": 1792562927.0358226,
+    "seen": 1792623351.8630686,
+    "ast_hash": "4f61320a979631f2a5240f86f6b23195",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/cli.mjs": {
+    "mtime": 1792562927.03833,
+    "seen": 1792623351.8630686,
+    "ast_hash": "264db7d6be273488726957df2527cf37",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/read-checks.mjs": {
+    "mtime": 1792562927.0393386,
+    "seen": 1792623351.8630686,
+    "ast_hash": "4a3470552e9ff1efdb0a755b7fd1de21",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/server.mjs": {
+    "mtime": 1792562927.0393386,
+    "seen": 1792623351.8630686,
+    "ast_hash": "b850371f190cf4ad60c766703b5ff118",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/tests/vault.test.mjs": {
+    "mtime": 1792562927.041343,
+    "seen": 1792623351.8630686,
+    "ast_hash": "f590709e56e79cd62d7b90a7ad5cac51",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/vault-crypto.mjs": {
+    "mtime": 1792562927.0443468,
+    "seen": 1792623351.8630686,
+    "ast_hash": "f2c5bee48cd1931c1e465aaa188b4b80",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/vault-schema.mjs": {
+    "mtime": 1792562927.045345,
+    "seen": 1792623351.8630686,
+    "ast_hash": "afa16dc6f59c6f299b8fc8a0f4082274",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1792118728.4021726,
+    "seen": 1792623351.8630686,
+    "ast_hash": "81215a79e8a3d84841ac1062c841796e",
+    "semantic_hash": ""
+  },
+  "vercel.json": {
+    "mtime": 1792118728.4021726,
+    "seen": 1792623351.8630686,
+    "ast_hash": "c75bc9a944d3b95ce1a8fc81505d1c00",
+    "semantic_hash": ""
+  },
+  ".agents/agents/dante-bridge.md": {
+    "mtime": 1792118728.3553574,
+    "seen": 1792623351.8630686,
+    "ast_hash": "59cd3ec3deb81c66ad558d9e7d0d7b99",
+    "semantic_hash": ""
+  },
+  ".agents/agents/security-auditor.md": {
+    "mtime": 1792118728.3553574,
+    "seen": 1792623351.8630686,
+    "ast_hash": "752e7adb96246a398993cb43669fb99c",
+    "semantic_hash": ""
+  },
+  ".agents/agents/ui-designer.md": {
+    "mtime": 1792118728.3563578,
+    "seen": 1792623351.8630686,
+    "ast_hash": "62a1420e81e14b60ecf0dae4d76691fe",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1792118728.3591835,
+    "seen": 1792623351.8630686,
+    "ast_hash": "be6cead10fb56016fdc2aa50e150b8bd",
+    "semantic_hash": ""
+  },
+  "ARCHITECTURE.md": {
+    "mtime": 1792118728.3601832,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d97535c8fccfba9a150ee04b08061f8f",
+    "semantic_hash": ""
+  },
+  "PROJECT_CONTINUITY.md": {
+    "mtime": 1792604104.62194,
+    "seen": 1792623351.8630686,
+    "ast_hash": "e03c53a556ac1e23c291f9ed1b61d657",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1792562926.933625,
+    "seen": 1792623351.8630686,
+    "ast_hash": "5f4d20e084af854beb223376285f4b1b",
+    "semantic_hash": ""
+  },
+  "ROADMAP.md": {
+    "mtime": 1792118728.361182,
+    "seen": 1792623351.8630686,
+    "ast_hash": "09508fd47211dad8b064ae76943b4450",
+    "semantic_hash": ""
+  },
+  "SECURITY.md": {
+    "mtime": 1792118728.361182,
+    "seen": 1792623351.8630686,
+    "ast_hash": "f126916dc4020e6c79ec63598c413deb",
+    "semantic_hash": ""
+  },
+  "docs/architecture.md": {
+    "mtime": 1792118728.3621821,
+    "seen": 1792623351.8630686,
+    "ast_hash": "5224f964553862a706bde57a510b7c38",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/README.md": {
+    "mtime": 1792118728.363181,
+    "seen": 1792623351.8630686,
+    "ast_hash": "ee650092bc4490b1f68a67ad75d89bb4",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-01.md": {
+    "mtime": 1792118728.3641815,
+    "seen": 1792623351.8630686,
+    "ast_hash": "ea0ed27478495432d6c6e531644afe6d",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-02.md": {
+    "mtime": 1792562926.934617,
+    "seen": 1792623351.8630686,
+    "ast_hash": "1fc11548467d10e4931cbc052b4ca4f8",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-03.md": {
+    "mtime": 1792562926.934617,
+    "seen": 1792623351.8630686,
+    "ast_hash": "dd179837a2621b97b5984c267ced24c7",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-04.md": {
+    "mtime": 1792562926.9356241,
+    "seen": 1792623351.8630686,
+    "ast_hash": "0c49ef76306adbcb20d5928bf94718ab",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-05.md": {
+    "mtime": 1792562926.9366207,
+    "seen": 1792623351.8630686,
+    "ast_hash": "88d25716b2e925db9b7e0a9670f0ad31",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-06.md": {
+    "mtime": 1792562926.9366207,
+    "seen": 1792623351.8630686,
+    "ast_hash": "437a79954b0ed9b4cdeb96a1226f352e",
+    "semantic_hash": ""
+  },
+  "docs/bitacoras/session-07.md": {
+    "mtime": 1792604023.1213617,
+    "seen": 1792623351.8630686,
+    "ast_hash": "5851fe448e6cd3228363898732367fc3",
+    "semantic_hash": ""
+  },
+  "docs/informes/INFORME_CONTEXTO_JARVIS_DANTE_2026-10-21.md": {
+    "mtime": 1792603828.6425881,
+    "seen": 1792623351.8630686,
+    "ast_hash": "c4a0cef0b635ef4dddd845dc341a18b7",
+    "semantic_hash": ""
+  },
+  "docs/informes/INFORME_INTEGRACION_PREVIEW_2026-10-21.md": {
+    "mtime": 1792562926.9391518,
+    "seen": 1792623351.8630686,
+    "ast_hash": "751dec1d043a59627f333977e9401c8a",
+    "semantic_hash": ""
+  },
+  "docs/informes/INFORME_TECNICO_CLINICO_DANTE_2026-10-21.md": {
+    "mtime": 1792603628.731872,
+    "seen": 1792623351.8630686,
+    "ast_hash": "96b7ecc7232b523c0ac37822e4ae4a66",
+    "semantic_hash": ""
+  },
+  "tools/config-vault/ui/index.html": {
+    "mtime": 1792562927.0433407,
+    "seen": 1792623351.8630686,
+    "ast_hash": "d677b8aa52f67b8e21bc4bb07382b02a",
+    "semantic_hash": ""
+  },
+  "\ud83e\udd16\ud83d\udc68\ud83d\udcbb\u2618\ufe0f\ud83d\udcbe\ud83d\udc40 Bit\u00e1cora de Sesiones/2026-09-30/01_inicializacion-fundacional/bitacora-session-01.md": {
+    "mtime": 1792118728.4039178,
+    "seen": 1792623351.8630686,
+    "ast_hash": "6f93cf5dea2dd26ed0df540488406e86",
+    "semantic_hash": ""
+  },
+  "\ud83e\udd16\ud83d\udc68\ud83d\udcbb\u2618\ufe0f\ud83d\udcbe\ud83d\udc40 Bit\u00e1cora de Sesiones/2026-10-01/02_frontera-dante-bridge/bitacora-session-02.md": {
+    "mtime": 1792118728.4049258,
+    "seen": 1792623351.8630686,
+    "ast_hash": "6c7b95dd5ef6d85ba00badadabbcc422",
+    "semantic_hash": ""
+  },
+  "\ud83e\udd16\ud83d\udc68\ud83d\udcbb\u2618\ufe0f\ud83d\udcbe\ud83d\udc40 Bit\u00e1cora de Sesiones/2026-10-01/03_api-chat-offline/bitacora-session-03.md": {
+    "mtime": 1792118728.4059248,
+    "seen": 1792623351.8630686,
+    "ast_hash": "09947a1edf702473a3bf557f164d6e24",
+    "semantic_hash": ""
+  },
+  "\ud83e\udd16\ud83d\udc68\ud83d\udcbb\u2618\ufe0f\ud83d\udcbe\ud83d\udc40 Bit\u00e1cora de Sesiones/2026-10-01/04_interfaz-chat-local/bitacora-session-04.md": {
+    "mtime": 1792118728.4069285,
+    "seen": 1792623351.8630686,
+    "ast_hash": "09c241c849d5687c6e7cc348606fa352",
+    "semantic_hash": ""
+  },
+  "\ud83e\udd16\ud83d\udc68\ud83d\udcbb\u2618\ufe0f\ud83d\udcbe\ud83d\udc40 Bit\u00e1cora de Sesiones/PROJECT_CONTINUITY.md": {
+    "mtime": 1792118728.4079273,
+    "seen": 1792623351.8630686,
+    "ast_hash": "57529aa08824ad2fec41338a6f2e33b1",
+    "semantic_hash": ""
+  },
+  "docs/informes/INFORME_CONTEXTO_JARVIS_DANTE_2026-10-21.pdf": {
+    "mtime": 1792603945.9664695,
+    "seen": 1792623351.8630686,
+    "ast_hash": "eeb6e00e437f51ce287dc35f442be4e4",
+    "semantic_hash": ""
+  },
+  "docs/informes/INFORME_INTEGRACION_PREVIEW_2026-10-21.pdf": {
+    "mtime": 1792562926.9441514,
+    "seen": 1792623351.8630686,
+    "ast_hash": "e9b396ba5d247bac80759dbddb97a39e",
+    "semantic_hash": ""
+  },
+  "docs/informes/INFORME_TECNICO_CLINICO_DANTE_2026-10-21.pdf": {
+    "mtime": 1792603941.4769592,
+    "seen": 1792623351.8630686,
+    "ast_hash": "7e1332104c909098cda62d7b2bb560dc",
+    "semantic_hash": ""
+  }
+}
