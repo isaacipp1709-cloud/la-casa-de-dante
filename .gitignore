@@ -41,3 +41,6 @@ Thumbs.db
 graphify-out/cache/
 graphify-out/*.sig
 graphify-out/*.pending.json
+
+.graphify*
+graphify-out/.graphify*
