@@ -7,7 +7,7 @@ import { ShieldCheck } from "lucide-react";
 import {
   createSingleFlight,
   describeCallbackFailure,
-  exchangeOAuthCode,
+  executeOAuthCallbackExchange,
   getBrowserAuthClient,
   isBrowserAuthConfigured,
   readOAuthCallbackParams,
@@ -44,18 +44,17 @@ export default function AuthCallbackPage() {
 
     const code = String(params.code);
 
-    // 4. Intercambio manual PKCE (el SDK no lo hace: detectSessionInUrl=false).
-    void (async () => {
-      const result = await exchangeOAuthCode(code);
-      if (!result.ok) {
-        setMessage(result.message ?? "No se pudo completar el acceso.");
-        return;
-      }
-
-      // 5. Sesion ya establecida: se limpia la URL y se navega a ruta fija.
-      window.history.replaceState({}, "", "/auth/callback");
-      router.replace(HOME_PATH);
-    })();
+    // 4. Intercambio manual PKCE protegido contra excepciones y cuelgues de red.
+    void executeOAuthCallbackExchange(code, {
+      onSuccess: () => {
+        // 5. Sesión ya establecida: se limpia la URL y se navega a ruta fija.
+        window.history.replaceState({}, "", "/auth/callback");
+        router.replace(HOME_PATH);
+      },
+      onFailure: (errorMessage) => {
+        setMessage(errorMessage);
+      },
+    });
   }, [router]);
 
   return (

@@ -13,6 +13,7 @@ import {
   buildBrowserAuthOptions,
   createSingleFlight,
   describeCallbackFailure,
+  executeOAuthCallbackExchange,
   executeSignInWithGuards,
   LOGIN_TIMEOUT_MESSAGE,
   LOGIN_TIMEOUT_MS,
@@ -172,6 +173,68 @@ describe('Guarda contra bloqueo de redirección en Login (R2)', () => {
     );
 
     assert.equal(timerCleared, true, 'el timer debe ser cancelado si hay error');
+  });
+});
+
+describe('Manejo robusto de excepciones en intercambio OAuth Callback (R2)', () => {
+  it('notifica éxito y completa el intercambio cuando el resultado es ok', async () => {
+    let successCalled = false;
+    let failureMessage: string | null = null;
+
+    const result = await executeOAuthCallbackExchange('valid-code', {
+      exchangeFn: async () => ({ ok: true }),
+      onSuccess: () => {
+        successCalled = true;
+      },
+      onFailure: (msg) => {
+        failureMessage = msg;
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(successCalled, true);
+    assert.equal(failureMessage, null);
+  });
+
+  it('notifica fallo con mensaje limpio cuando exchangeOAuthCode retorna ok: false', async () => {
+    let successCalled = false;
+    let failureMessage: string | null = null;
+
+    const result = await executeOAuthCallbackExchange('bad-code', {
+      exchangeFn: async () => ({ ok: false, message: 'Código de autorización expirado' }),
+      onSuccess: () => {
+        successCalled = true;
+      },
+      onFailure: (msg) => {
+        failureMessage = msg;
+      },
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(successCalled, false);
+    assert.equal(failureMessage, 'Código de autorización expirado');
+  });
+
+  it('captura excepciones no controladas de red y no congela en "Verificando...", mostrando error', async () => {
+    let successCalled = false;
+    let failureMessage: string | null = null;
+
+    const result = await executeOAuthCallbackExchange('any-code', {
+      exchangeFn: async () => {
+        throw new TypeError('Failed to fetch from https://supabase.co/auth/v1/token');
+      },
+      onSuccess: () => {
+        successCalled = true;
+      },
+      onFailure: (msg) => {
+        failureMessage = msg;
+      },
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(successCalled, false);
+    assert.match(String(failureMessage), /Failed to fetch/i);
+    assert.match(String(failureMessage), /No se pudo completar la verificación/i);
   });
 });
 

@@ -193,3 +193,37 @@ export async function executeSignInWithGuards(
   return { ok: success, message: finalMessage };
 }
 
+export interface OAuthCallbackExecutionOptions {
+  exchangeFn?: (code: string) => Promise<{ ok: boolean; message?: string }>;
+  onSuccess: () => void;
+  onFailure: (message: string) => void;
+}
+
+/**
+ * Ejecuta el intercambio manual PKCE con captura integral de excepciones:
+ * - try ... catch garantiza que errores de red o rechazos de promesa no congelen la pantalla
+ *   en "Verificando la sesion con Supabase...".
+ */
+export async function executeOAuthCallbackExchange(
+  code: string,
+  options: OAuthCallbackExecutionOptions
+): Promise<{ ok: boolean; message?: string }> {
+  const exchange = options.exchangeFn ?? exchangeOAuthCode;
+  try {
+    const result = await exchange(code);
+    if (!result.ok) {
+      const msg = result.message ?? 'No se pudo completar el acceso.';
+      options.onFailure(msg);
+      return { ok: false, message: msg };
+    }
+    options.onSuccess();
+    return { ok: true };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'Error inesperado al conectar con el servidor.';
+    const msg = `No se pudo completar la verificación del acceso: ${detail}`;
+    options.onFailure(msg);
+    return { ok: false, message: msg };
+  }
+}
+
+
