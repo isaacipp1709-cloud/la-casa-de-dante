@@ -17,6 +17,7 @@ import {
   LogIn,
   Database,
   Globe,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { getBrowserAuthClient, signOut } from "@/lib/auth/client-session";
@@ -27,6 +28,7 @@ export const navItems = [
   { href: "/connections", label: "Sistema", icon: Settings },
   { href: "/dashboard/providers", label: "APIs", icon: Radio },
   { href: "/database", label: "Base de Datos", icon: Database },
+  { href: "/crm", label: "CRM & Memoria", icon: Users },
   { href: "/live-apis", label: "APIs en Vivo", icon: Globe },
   { href: "/neurons", label: "Neuronas", icon: Brain },
   { href: "/logs", label: "Bitácora", icon: ScrollText },
