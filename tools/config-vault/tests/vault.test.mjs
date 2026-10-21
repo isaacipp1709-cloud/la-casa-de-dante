@@ -354,4 +354,18 @@ describe('Dante Config Vault · Pruebas Criptográficas y de Seguridad', () => {
       await serverInstance.stop();
     }
   });
+
+  it('13. Verificación estricta de TLS en comprobaciones Neon (cero rejectUnauthorized: false)', async () => {
+    const { buildPgClientOptions, NEON_PG_SSL_CONFIG } = await import('../read-checks.mjs');
+
+    assert.equal(NEON_PG_SSL_CONFIG.rejectUnauthorized, true, 'NEON_PG_SSL_CONFIG debe tener rejectUnauthorized: true');
+
+    const opts = buildPgClientOptions('postgres://fake_user:fake_password@ep-quiet-forest-b571toev.us-east-2.aws.neon.tech:5432/neondb?sslmode=require');
+    assert.equal(opts.ssl.rejectUnauthorized, true, 'buildPgClientOptions debe requerir verificación estricta de certificado TLS');
+    assert.notEqual(opts.ssl.rejectUnauthorized, false, 'rejectUnauthorized jamás debe ser false');
+
+    // Auditoría estática del archivo: confirmar que no existe rejectUnauthorized: false en el código fuente
+    const readChecksSource = fs.readFileSync(path.resolve(__dirname, '..', 'read-checks.mjs'), 'utf8');
+    assert.ok(!readChecksSource.includes('rejectUnauthorized: false'), 'read-checks.mjs no debe contener rejectUnauthorized: false');
+  });
 });

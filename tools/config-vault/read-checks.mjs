@@ -32,6 +32,20 @@ function sanitizeText(text, secrets = []) {
   return sanitized;
 }
 
+export const NEON_PG_SSL_CONFIG = { rejectUnauthorized: true };
+
+/**
+ * Genera la configuración de conexión segura con TLS estricto hacia Neon.
+ * Requiere explícitamente TLS seguro con rejectUnauthorized en true.
+ */
+export function buildPgClientOptions(connectionString) {
+  return {
+    connectionString,
+    ssl: { rejectUnauthorized: true },
+    connectionTimeoutMillis: 5000,
+  };
+}
+
 /**
  * Obtiene el cliente pg resolviendo dinámicamente el módulo disponible.
  */
@@ -61,11 +75,7 @@ async function getPgClient(connectionString) {
     }
   }
   const Client = pg.default?.Client || pg.Client;
-  return new Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 5000,
-  });
+  return new Client(buildPgClientOptions(connectionString));
 }
 
 /**
