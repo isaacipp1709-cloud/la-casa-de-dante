@@ -14,7 +14,14 @@ export async function GET(request: NextRequest) {
     );
   }
   try {
-    const conversations = await danteBridge.getConversations(owner.ownerId);
+    let conversations;
+    try {
+      conversations = await danteBridge.getConversations(owner.ownerId);
+    } catch {
+      // Reintento silencioso para absorber posibles arranques en frío (cold-start) de Neon / Core
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      conversations = await danteBridge.getConversations(owner.ownerId);
+    }
     const parsed = DanteConversationsResponseSchema.safeParse(conversations);
 
     if (!parsed.success) {

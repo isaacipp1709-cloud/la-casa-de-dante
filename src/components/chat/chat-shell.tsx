@@ -42,6 +42,12 @@ export function ChatShell() {
     controllerRef.current!.getSnapshot()
   );
 
+  const [activeSelection, setActiveSelection] = useState<{
+    providerId?: string;
+    model?: string;
+    credentialId?: string;
+  }>({});
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -138,7 +144,12 @@ export function ChatShell() {
   );
 
   const handleSend = (content: string) => {
-    void submitMessage(content);
+    void submitMessage(
+      content,
+      activeSelection.providerId,
+      activeSelection.model,
+      activeSelection.credentialId
+    );
   };
 
   const handleComposerSend = (message: {
@@ -380,7 +391,11 @@ export function ChatShell() {
 
       <div className="w-full border-t border-zinc-900 bg-zinc-950/80 backdrop-blur">
         <div className="max-w-4xl mx-auto">
-          <ChatComposer onSend={handleComposerSend} disabled={isSendDisabled} />
+          <ChatComposer
+            onSend={handleComposerSend}
+            onSelectionChange={setActiveSelection}
+            disabled={isSendDisabled}
+          />
         </div>
       </div>
     </div>

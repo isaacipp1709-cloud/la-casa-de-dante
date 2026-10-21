@@ -2,7 +2,7 @@
 
 import { authorizedFetch } from "@/lib/auth/client-session";
 import { ALLOWED_GEMINI_MODELS } from "@/lib/providers/gemini";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export interface ProviderOption {
   id: string;
@@ -22,30 +22,43 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
   const [selectedProvider, setSelectedProvider] = useState<string | null>(val.providerId);
   const [selectedModel, setSelectedModel] = useState<string | null>(val.model);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const onProviderChangeRef = useRef(onProviderChange);
+  useEffect(() => {
+    onProviderChangeRef.current = onProviderChange;
+  }, [onProviderChange]);
+
+  const initialValProviderId = useRef(val.providerId);
 
   useEffect(() => {
     const loadProviders = async () => {
       setLoading(true);
-      setError(null);
       
       try {
         const response = await authorizedFetch("/api/providers");
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
-            setProviders(data.map(p => ({
+            const list: ProviderOption[] = data.map(p => ({
               id: p.id,
               name: p.name,
               category: p.category,
               models: Array.isArray(p.models) ? p.models : []
-            })));
+            }));
+            setProviders(list);
+
+            // Pre-seleccionar automáticamente el proveedor operativo principal
+            if (!initialValProviderId.current && list.length > 0) {
+              const defaultP = list.find(p => p.id === "gemini") || list[0];
+              setSelectedProvider(defaultP.id);
+              const defaultM = defaultP.models[0] || null;
+              setSelectedModel(defaultM);
+              onProviderChangeRef.current(defaultP.id, defaultM);
+            }
           } else {
             throw new Error("Unexpected response format");
           }
         } else if (response.status === 401 || response.status === 403) {
-          // Sin sesion no se aparenta normalidad con un catalogo local.
-          setError("Inicia sesion para cargar los proveedores disponibles.");
           setProviders([]);
           return;
         } else {
@@ -54,20 +67,26 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         console.warn("Failed to load providers from backend:", reason);
-        setError("No se pudo cargar la lista de proveedores desde el backend");
-        // Fall back to static mock catalog - explicitly marked as unverified
-        setProviders([
-          { id: "groq", name: "Groq", category: "razonamiento", models: ["llama3-8b-8192"] },
+        const fallbackList: ProviderOption[] = [
           { id: "gemini", name: "Google Gemini", category: "razonamiento", models: [...ALLOWED_GEMINI_MODELS] },
+          { id: "groq", name: "Groq", category: "razonamiento", models: ["llama3-8b-8192"] },
           { id: "ollama", name: "Ollama Local", category: "local", models: ["llama3"] },
           { id: "mock", name: "Mock Local", category: "mock", models: ["mock-dante"] }
-        ]);
+        ];
+        setProviders(fallbackList);
+        if (!initialValProviderId.current && fallbackList.length > 0) {
+          const defaultP = fallbackList[0];
+          setSelectedProvider(defaultP.id);
+          const defaultM = defaultP.models[0] || null;
+          setSelectedModel(defaultM);
+          onProviderChangeRef.current(defaultP.id, defaultM);
+        }
       } finally {
         setLoading(false);
       }
     };
     
-    loadProviders();
+    void loadProviders();
   }, []);
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -94,26 +113,30 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
           value={selectedProvider || ""}
           onChange={handleProviderChange}
           disabled={disabled || loading}
-          className="w-full sm:w-32 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-600 disabled:opacity-50"
+          className="w-full sm:w-36 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-600 disabled:opacity-50"
         >
           <option value="">Seleccionar...</option>
           {providers.map(p => <option key={p.id} value={p.id} disabled={loading}>{p.name}</option>)}
-          {providers.length > 0 && !loading && !error && <option value="" disabled className="text-zinc-500">(catálogo local no verificado)</option>}
         </select>
       </div>
-      <div className="w-full sm:w-auto mt-2 sm:mt-0">
-        <label htmlFor="model-select" className="mb-1 block text-xs font-mono text-zinc-400"> Modelo </label>
-        <select
-          id="model-select"
-          value={selectedModel || ""}
-          onChange={handleModelChange}
-          disabled={disabled || !selectedProvider || loading}
-          className="w-full sm:w-32 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-600 disabled:opacity-50"
-        >
-          <option value="">Seleccionar...</option>
-          {selectedProvider && providers.find(p => p.id === selectedProvider)?.models.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-      </div>
+
+      {selectedProvider && (
+        <div className="w-full sm:w-auto mt-2 sm:mt-0">
+          <label htmlFor="model-select" className="mb-1 block text-xs font-mono text-zinc-400"> Modelo </label>
+          <select
+            id="model-select"
+            value={selectedModel || ""}
+            onChange={handleModelChange}
+            disabled={disabled || loading}
+            className="w-full sm:w-44 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-zinc-200 focus:outline-none focus:border-zinc-600 disabled:opacity-50"
+          >
+            {providers.find(p => p.id === selectedProvider)?.models.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
+export default ProviderSelector;

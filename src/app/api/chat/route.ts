@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DanteChatRequestSchema, DanteChatResponseSchema } from "@/contracts/dante";
-import { danteBridge } from "@/lib/dante-bridge";
+import { DanteChatRequestSchema } from "@/contracts/dante";
 import { requireAuthorizedOwner } from "@/lib/auth/require-owner";
 import { DanteBridgeError } from "@/lib/dante-bridge/errors";
 import {
@@ -49,38 +48,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Con credentialId: resolucion segura (auth -> propietario -> descifrado -> adaptador).
-    if (parsedRequest.data.credentialId) {
+    // Si no se proporcionó credentialId en la petición, auto-resolver desde las credenciales guardadas del usuario
+    let targetCredentialId = parsedRequest.data.credentialId;
+    if (!targetCredentialId) {
+      try {
+        const listRes = await credentialHandlerDeps.core?.listCredentials(owner.ownerId);
+        if (listRes?.credentials && listRes.credentials.length > 0) {
+          const matched = parsedRequest.data.providerId
+            ? listRes.credentials.find(c => c.providerId === parsedRequest.data.providerId)
+            : listRes.credentials[0];
+          targetCredentialId = matched ? matched.credentialId : listRes.credentials[0].credentialId;
+        }
+      } catch {
+        // Fallback cerrado
+      }
+    }
+
+    // Con credentialId (explícito o auto-resuelto): resolución segura
+    if (targetCredentialId) {
+      rawBody.credentialId = targetCredentialId;
       const byok = await handleChatWithStoredCredentialFromBody(request, rawBody, credentialHandlerDeps);
       return NextResponse.json(byok.body, { status: byok.status });
     }
 
-    // Sin credencial guardada no se usa ninguna clave de entorno ni mock:
-    // el chat interactivo exige una conexion de la boveda.
-    if (!parsedRequest.data.credentialId) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'CREDENTIAL_REQUIRED',
-            message: 'Selecciona una conexion guardada para conversar con Dante.',
-          },
+    // Sin credencial guardada ni seleccionada no se usa ninguna clave de entorno ni mock:
+    return NextResponse.json(
+      {
+        error: {
+          code: 'CREDENTIAL_REQUIRED',
+          message: 'Selecciona una conexion guardada para conversar con Dante.',
         },
-        { status: 400 },
-      );
-    }
-
-    // El resto de este bloque es inalcanzable con credentialId presente.
-    const bridgeResponse = await danteBridge.chat(parsedRequest.data, { verifiedOwnerId: owner.ownerId });
-
-    const parsedResponse = DanteChatResponseSchema.safeParse(bridgeResponse);
-    if (!parsedResponse.success) {
-      return NextResponse.json(
-        { error: { code: "INTERNAL_ERROR", message: "Respuesta interna inválida." } },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(parsedResponse.data, { status: 200 });
+      },
+      { status: 400 },
+    );
   } catch (error) {
     if (error instanceof DanteBridgeError) {
       if (error.code === "VALIDATION_ERROR") {

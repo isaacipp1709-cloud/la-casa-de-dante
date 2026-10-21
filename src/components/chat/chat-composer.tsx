@@ -12,10 +12,15 @@ interface ChatComposerProps {
     model?: string;
     credentialId?: string;
   }) => void;
+  onSelectionChange?: (sel: {
+    providerId?: string;
+    model?: string;
+    credentialId?: string;
+  }) => void;
   disabled?: boolean;
 }
 
-export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
+export function ChatComposer({ onSend, onSelectionChange, disabled = false }: ChatComposerProps) {
   const [input, setInput] = useState('');
   const [providerId, setProviderId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
@@ -23,6 +28,14 @@ export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (!disabled && textareaRef.current) textareaRef.current.focus(); }, [disabled]);
+
+  useEffect(() => {
+    onSelectionChange?.({
+      providerId: providerId || undefined,
+      model: model || undefined,
+      credentialId: credentialId || undefined,
+    });
+  }, [providerId, model, credentialId, onSelectionChange]);
 
   const handleSend = () => {
     const trimmed = input.trim();
@@ -46,9 +59,9 @@ export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
 
   return (
     <div className="flex flex-col w-full">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:gap-3 w-full">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:gap-3 w-full px-4 sm:px-6 pt-3">
         <ProviderSelector
-          onProviderChange={(p, m) => { setProviderId(p); setModel(m); setCredentialId(null); }}
+          onProviderChange={(p, m) => { setProviderId(p); setModel(m); }}
           disabled={disabled}
         />
         <CredentialSelector
@@ -69,3 +82,4 @@ export function ChatComposer({ onSend, disabled = false }: ChatComposerProps) {
     </div>
   );
 }
+export default ChatComposer;
