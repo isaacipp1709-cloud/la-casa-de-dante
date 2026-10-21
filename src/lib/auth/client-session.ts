@@ -13,10 +13,85 @@ import { buildCallbackRedirect, buildGitHubOAuthOptions } from './github-oauth';
 
 let cached: SupabaseClient | null = null;
 
+/**
+ * Almacenamiento volatil estrictamente en memoria (RAM de la pestaña).
+ * Diseñado para terminales publicas (universidades, bibliotecas):
+ * Ningun token de sesion, JWT ni clave privada sobrevive al cierre de la pestaña o navegador.
+ */
+const volatileMemoryStorage = new Map<string, string>();
+
+export function getClientSessionMemory(): Map<string, string> {
+  return volatileMemoryStorage;
+}
+
+export function clearClientSessionMemory(): void {
+  volatileMemoryStorage.clear();
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage.clear();
+      for (let i = window.localStorage.length - 1; i >= 0; i--) {
+        const key = window.localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          window.localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // Ignorar restricciones en entornos sin acceso a storage
+    }
+  }
+}
+
+/** Adaptador de almacenamiento que aisla tokens en memoria volatil */
+export const browserAuthStorage = {
+  getItem: (key: string): string | null => {
+    // El verifier de PKCE debe sobrevivir al salto temporal hacia GitHub OAuth y de vuelta a /auth/callback
+    if (key.includes('code-verifier')) {
+      if (typeof window !== 'undefined') {
+        try {
+          return window.sessionStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      }
+    }
+    // Todos los tokens de autenticacion (sesion, access_token, refresh_token) viven SOLO en memoria volatil
+    return volatileMemoryStorage.get(key) ?? null;
+  },
+  setItem: (key: string, value: string): void => {
+    if (key.includes('code-verifier')) {
+      if (typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem(key, value);
+        } catch {}
+      }
+      return;
+    }
+    // Sesion guardada unicamente en memoria volatil
+    volatileMemoryStorage.set(key, value);
+    // Garantizar que no se escriba en almacenamiento persistente
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(key);
+        window.sessionStorage.removeItem(key);
+      } catch {}
+    }
+  },
+  removeItem: (key: string): void => {
+    volatileMemoryStorage.delete(key);
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem(key);
+        window.localStorage.removeItem(key);
+      } catch {}
+    }
+  },
+};
+
 /** Opciones explicitas del cliente (verificables en pruebas). */
 export function buildBrowserAuthOptions() {
   return {
     auth: {
+      storage: browserAuthStorage,
       persistSession: true,
       autoRefreshToken: true,
       // El retorno OAuth se procesa solo en /auth/callback (exchange manual).
@@ -84,7 +159,11 @@ export async function signInWithGitHub(): Promise<{ ok: boolean; message?: strin
 
 export async function signOut(): Promise<void> {
   const client = getBrowserAuthClient();
-  await client?.auth.signOut();
+  try {
+    await client?.auth.signOut();
+  } finally {
+    clearClientSessionMemory();
+  }
 }
 
 export interface OAuthCallbackParams {

@@ -43,6 +43,11 @@ export function StatusBar() {
     return () => clearInterval(interval);
   }, []);
 
+  const isCloud =
+    process.env.NEXT_PUBLIC_DANTE_MODE === "cloud" ||
+    (typeof window !== "undefined" && !window.location.hostname.includes("localhost"));
+  const modeLabel = isCloud ? "Dante AI · Cloud Core" : "Dante AI · Core Activo";
+
   return (
     <footer
       className="h-8 border-t border-zinc-900 bg-zinc-950 flex items-center justify-between px-4 text-[11px] font-mono text-zinc-500 shrink-0"
@@ -61,7 +66,7 @@ export function StatusBar() {
         )}
       </div>
       <div className="hidden sm:block">
-        <span>Dante AI · local-core</span>
+        <span>{modeLabel}</span>
       </div>
     </footer>
   );

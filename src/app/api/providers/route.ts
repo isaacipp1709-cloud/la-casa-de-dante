@@ -24,10 +24,21 @@ export async function GET(request: NextRequest) {
     const providersWithModels = providers.map((provider) => {
       const modelMap: Record<string, string[]> = {
         'gemini': [...ALLOWED_GEMINI_MODELS],
-        'groq': ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768'],
+        'nvidia': [
+          'meta/llama-3.1-70b-instruct',
+          'meta/llama-3.3-70b-instruct',
+          'mistralai/mistral-large-2-instruct',
+          'nvidia/llama-3.1-nemotron-70b-instruct',
+        ],
+        'groq': ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+        'openrouter': [
+          'meta-llama/llama-3.3-70b-instruct:free',
+          'mistralai/mistral-7b-instruct:free',
+          'qwen/qwen-2.5-72b-instruct',
+        ],
         'ollama': ['llama3', 'mistral', 'phi3'],
         'mock': ['mock-dante'],
-        'huggingface': ['mistralai/Mistral-7B-Instruct-v0.2']
+        'huggingface': ['meta-llama/Meta-Llama-3-8B-Instruct', 'mistralai/Mistral-7B-Instruct-v0.2'],
       };
       const declared = Array.isArray(provider.models) ? provider.models : [];
       return { ...provider, models: declared.length > 0 ? declared : modelMap[provider.id] || [] };

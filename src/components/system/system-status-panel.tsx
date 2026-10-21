@@ -183,7 +183,7 @@ export function SystemStatusPanel() {
               ? "..."
               : primaryProvider
               ? `${primaryProvider.name} (${activeProviders.length} disp.)`
-              : "Dante-AI-Core (local-core)"}
+              : "Dante Cloud Core"}
           </p>
         </div>
 

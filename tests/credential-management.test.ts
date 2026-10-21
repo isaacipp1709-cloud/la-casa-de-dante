@@ -184,6 +184,6 @@ describe('Gestion de credenciales desde la UI', () => {
     assert.ok(!isAllowedProviderId('groq-llama3'), 'los ids del catalogo de bridge no son validos para credenciales');
     const gemini = BYOK_PROVIDERS.find((p) => p.id === 'gemini');
     assert.equal(gemini?.adapterReady, true);
-    assert.equal(BYOK_PROVIDERS.filter((p) => p.adapterReady).length, 1, 'solo gemini tiene adaptador real');
+    assert.equal(BYOK_PROVIDERS.filter((p) => p.adapterReady).length, 5, 'gemini, nvidia, groq, openrouter y huggingface tienen adaptador real');
   });
 });

@@ -2,9 +2,10 @@
 
 import { authorizedFetch, getBrowserAuthClient } from "@/lib/auth/client-session";
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { ChatMessage } from "./chat-message";
 import { ChatComposer } from "./chat-composer";
-import { Terminal, Plus, RotateCcw, Sparkles, MessageSquare } from "lucide-react";
+import { Terminal, Plus, RotateCcw, Sparkles, MessageSquare, ShieldCheck, LogIn } from "lucide-react";
 import {
   createChatHistoryController,
   type ChatHistorySnapshot,
@@ -91,7 +92,7 @@ export function ChatShell() {
       activeSession.messagesStatus === "loading" ||
       activeSession.messagesStatus === "error");
 
-  const isSendDisabled = isSending || isHistoryBlocked;
+  const isSendDisabled = isSending || isHistoryBlocked || isUnauthenticated;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -168,9 +169,18 @@ export function ChatShell() {
               Cargando conversaciones...
             </span>
           ) : isUnauthenticated ? (
-            <span className="text-xs font-mono text-amber-400">
-              Inicia sesión para cargar tu historial persistente
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-amber-400">
+                Sesión no autenticada en este dominio.
+              </span>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/80 text-[11px] font-mono text-amber-200 transition-colors"
+              >
+                <LogIn className="w-3 h-3" />
+                <span>Iniciar sesión</span>
+              </Link>
+            </div>
           ) : conversationsStatus === "error" && conversationsError ? (
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-red-400 truncate max-w-xs sm:max-w-md">
@@ -208,7 +218,7 @@ export function ChatShell() {
           <button
             type="button"
             onClick={handleNewSession}
-            disabled={isSending}
+            disabled={isSendDisabled}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 text-xs font-mono transition-colors disabled:opacity-50"
           >
             <Plus className="w-3.5 h-3.5 text-emerald-400" />
@@ -279,39 +289,58 @@ export function ChatShell() {
           {!isLoadingMessages &&
             currentSession.messagesStatus !== "error" &&
             messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center mt-16 sm:mt-20 text-center space-y-5">
-                <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-xl flex items-center justify-center shadow-sm">
-                  <Terminal className="w-5 h-5" />
+              isUnauthenticated ? (
+                <div className="flex flex-col items-center justify-center mt-12 sm:mt-16 text-center max-w-md mx-auto p-6 sm:p-8 rounded-2xl bg-zinc-900/50 border border-zinc-800 space-y-4">
+                  <div className="w-12 h-12 bg-amber-950/40 border border-amber-900/60 text-amber-400 rounded-xl flex items-center justify-center shadow-sm">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-zinc-100 font-semibold text-sm">Sesión no autenticada en este dominio</h3>
+                    <p className="text-zinc-400 text-xs font-mono leading-relaxed">
+                      Para interactuar con Dante AI, sincronizar tus 37 neuronas, tus credenciales BYOK y tu historial en Neon, inicia sesión con GitHub.
+                    </p>
+                  </div>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-medium text-xs font-mono transition-colors shadow-sm"
+                  >
+                    <LogIn className="w-4 h-4 text-zinc-950" />
+                    <span>Iniciar sesión con GitHub</span>
+                  </Link>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-zinc-200 font-medium text-sm">
-                    {isUnauthenticated
-                      ? "Sesión no autenticada."
-                      : sessions.length === 0
+              ) : (
+                <div className="flex flex-col items-center justify-center mt-16 sm:mt-20 text-center space-y-5">
+                  <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 text-emerald-400 rounded-xl flex items-center justify-center shadow-sm">
+                    <Terminal className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-zinc-200 font-medium text-sm">
+                      {sessions.length === 0
                         ? "No tienes conversaciones guardadas todavía."
                         : "Núcleo conversacional inicializado."}
-                  </p>
-                  <p className="text-zinc-500 text-xs font-mono">
-                    {activeSessionId
-                      ? `Sesión: ${currentSession.id} · Frontera Zod activa`
-                      : "Envía tu primer mensaje o crea una nueva sesión para comenzar"}
-                  </p>
+                    </p>
+                    <p className="text-zinc-500 text-xs font-mono">
+                      {activeSessionId
+                        ? `Sesión: ${currentSession.id} · Frontera Zod activa`
+                        : "Envía tu primer mensaje o crea una nueva sesión para comenzar"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl pt-2">
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        disabled={isSendDisabled}
+                        onClick={() => handleSend(prompt)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs text-zinc-300 transition-colors text-left disabled:opacity-50"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{prompt}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-2 max-w-xl pt-2">
-                  {QUICK_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      disabled={isSendDisabled}
-                      onClick={() => handleSend(prompt)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-xs text-zinc-300 transition-colors text-left disabled:opacity-50"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>{prompt}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )
             )}
 
           {messages.map((msg) => (
