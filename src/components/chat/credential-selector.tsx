@@ -18,6 +18,9 @@ export interface CredentialSelectorProps {
 
 const PROVIDER_LABEL: Record<string, string> = {
   gemini: "Gemini",
+  deepseek: "DeepSeek",
+  nvidia: "NVIDIA NIM",
+  openrouter: "OpenRouter",
   groq: "Groq",
   ollama: "Ollama",
   huggingface: "Hugging Face",

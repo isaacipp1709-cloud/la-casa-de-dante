@@ -12,6 +12,7 @@ export interface ByokProvider {
 
 export const BYOK_PROVIDERS: readonly ByokProvider[] = [
   { id: 'gemini', label: 'Google Gemini', adapterReady: true },
+  { id: 'deepseek', label: 'DeepSeek', adapterReady: true },
   { id: 'nvidia', label: 'NVIDIA NIM', adapterReady: true },
   { id: 'groq', label: 'Groq', adapterReady: true },
   { id: 'openrouter', label: 'OpenRouter', adapterReady: true },

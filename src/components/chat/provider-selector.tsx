@@ -69,6 +69,10 @@ export function ProviderSelector({ onProviderChange, disabled = false, value: va
         console.warn("Failed to load providers from backend:", reason);
         const fallbackList: ProviderOption[] = [
           { id: "gemini", name: "Google Gemini", category: "razonamiento", models: [...ALLOWED_GEMINI_MODELS] },
+          { id: "deepseek", name: "DeepSeek", category: "razonamiento", models: ["deepseek-chat", "deepseek-reasoner"] },
+          { id: "nvidia", name: "NVIDIA NIM", category: "razonamiento", models: ["meta/llama-3.1-70b-instruct", "meta/llama-3.3-70b-instruct"] },
+          { id: "openrouter", name: "OpenRouter", category: "agregador", models: ["meta-llama/llama-3.3-70b-instruct:free"] },
+          { id: "huggingface", name: "Hugging Face", category: "inferencia", models: ["meta-llama/Meta-Llama-3-8B-Instruct"] },
           { id: "groq", name: "Groq", category: "razonamiento", models: ["llama3-8b-8192"] },
           { id: "ollama", name: "Ollama Local", category: "local", models: ["llama3"] },
           { id: "mock", name: "Mock Local", category: "mock", models: ["mock-dante"] }

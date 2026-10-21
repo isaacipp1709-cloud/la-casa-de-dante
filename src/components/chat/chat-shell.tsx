@@ -226,6 +226,17 @@ export function ChatShell() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Badge del Pool Inteligente con Auto-Failover */}
+          <Link
+            href="/dashboard/providers"
+            title="Pool Inteligente de Tokens Activo: Conmutación automática en caliente ante saturación (Gemini -> DeepSeek -> NVIDIA -> OpenRouter -> HF -> Groq)"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-mono transition-colors"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-zinc-400">Pool:</span>
+            <span className="text-emerald-400 font-medium">Auto-Failover</span>
+          </Link>
+
           <button
             type="button"
             onClick={handleNewSession}

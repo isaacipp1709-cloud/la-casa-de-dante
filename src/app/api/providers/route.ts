@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const providersWithModels = providers.map((provider) => {
       const modelMap: Record<string, string[]> = {
         'gemini': [...ALLOWED_GEMINI_MODELS],
+        'deepseek': ['deepseek-chat', 'deepseek-reasoner'],
         'nvidia': [
           'meta/llama-3.1-70b-instruct',
           'meta/llama-3.3-70b-instruct',
