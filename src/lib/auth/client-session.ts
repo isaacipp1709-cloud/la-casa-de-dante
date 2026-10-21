@@ -129,3 +129,67 @@ export async function authorizedFetch(input: string, init: RequestInit = {}): Pr
   if (token) headers.set('Authorization', 'Bearer ' + token);
   return fetch(input, { ...init, headers });
 }
+
+export const LOGIN_TIMEOUT_MS = 15_000;
+export const LOGIN_TIMEOUT_MESSAGE = 'El inicio de sesión tomó demasiado tiempo. Por favor intenta de nuevo.';
+
+export interface SignInExecutionOptions {
+  timeoutMs?: number;
+  onStateChange: (state: { busy: boolean; message: string | null }) => void;
+  timerApi?: {
+    setTimeout: (fn: () => void, ms: number) => unknown;
+    clearTimeout: (id: unknown) => void;
+  };
+}
+
+/**
+ * Ejecuta el flujo de inicio de sesión con guardas de seguridad completas:
+ * - try ... finally garantizando que busy vuelva a false si ocurre un error o rechazo.
+ * - Temporizador de seguridad (15 s) para desbloquear el botón si la redirección no se completa.
+ */
+export async function executeSignInWithGuards(
+  signInFn: () => Promise<{ ok: boolean; message?: string }>,
+  options: SignInExecutionOptions
+): Promise<{ ok: boolean; message?: string | null }> {
+  const timeoutMs = options.timeoutMs ?? LOGIN_TIMEOUT_MS;
+  const timer = options.timerApi ?? {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (id) => clearTimeout(id as NodeJS.Timeout),
+  };
+
+  options.onStateChange({ busy: true, message: null });
+
+  let timerId: unknown = timer.setTimeout(() => {
+    timerId = null;
+    options.onStateChange({ busy: false, message: LOGIN_TIMEOUT_MESSAGE });
+  }, timeoutMs);
+
+  let hasError = false;
+  let finalMessage: string | null = null;
+  let success = false;
+
+  try {
+    const result = await signInFn();
+    if (!result.ok) {
+      hasError = true;
+      finalMessage = result.message ?? 'No se pudo iniciar el acceso.';
+    } else {
+      success = true;
+    }
+  } catch (err) {
+    hasError = true;
+    const detail = err instanceof Error ? err.message : 'Error inesperado al conectar con el proveedor.';
+    finalMessage = `No se pudo iniciar el acceso: ${detail}`;
+  } finally {
+    if (hasError) {
+      if (timerId !== null) {
+        timer.clearTimeout(timerId);
+        timerId = null;
+      }
+      options.onStateChange({ busy: false, message: finalMessage });
+    }
+  }
+
+  return { ok: success, message: finalMessage };
+}
+

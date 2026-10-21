@@ -1,20 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ShieldCheck, LogIn } from "lucide-react";
-import { isBrowserAuthConfigured, signInWithGitHub } from "@/lib/auth/client-session";
+import {
+  executeSignInWithGuards,
+  isBrowserAuthConfigured,
+  LOGIN_TIMEOUT_MS,
+  signInWithGitHub,
+} from "@/lib/auth/client-session";
 
 export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const configured = isBrowserAuthConfigured();
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleSignIn = async () => {
-    setBusy(true);
-    setMessage(null);
-    const result = await signInWithGitHub();
-    if (!result.ok) setMessage(result.message ?? "No se pudo iniciar el acceso.");
-    setBusy(false);
+    if (busy) return;
+    try {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      await executeSignInWithGuards(signInWithGitHub, {
+        timeoutMs: LOGIN_TIMEOUT_MS,
+        onStateChange: ({ busy, message }) => {
+          setBusy(busy);
+          if (message !== undefined) setMessage(message);
+        },
+        timerApi: {
+          setTimeout: (fn, ms) => {
+            const id = setTimeout(fn, ms);
+            timerRef.current = id;
+            return id;
+          },
+          clearTimeout: (id) => {
+            clearTimeout(id as NodeJS.Timeout);
+            timerRef.current = null;
+          },
+        },
+      });
+    } catch (unexpected) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      const msg = unexpected instanceof Error ? unexpected.message : "Error inesperado.";
+      setMessage(`No se pudo iniciar el acceso: ${msg}`);
+      setBusy(false);
+    }
   };
 
   return (

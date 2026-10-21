@@ -13,6 +13,9 @@ import {
   buildBrowserAuthOptions,
   createSingleFlight,
   describeCallbackFailure,
+  executeSignInWithGuards,
+  LOGIN_TIMEOUT_MESSAGE,
+  LOGIN_TIMEOUT_MS,
   readOAuthCallbackParams,
 } from '../src/lib/auth/client-session';
 
@@ -73,3 +76,102 @@ describe('PKCE explicito y un solo intercambio', () => {
     );
   });
 });
+
+describe('Guarda contra bloqueo de redirección en Login (R2)', () => {
+  it('resetea busy a false inmediatamente en finally ante fallo devuelto por signIn', async () => {
+    const states: Array<{ busy: boolean; message: string | null }> = [];
+    const mockSignIn = async () => ({ ok: false, message: 'Falta configuración de Supabase' });
+
+    const result = await executeSignInWithGuards(mockSignIn, {
+      onStateChange: (s) => states.push(s),
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.message, 'Falta configuración de Supabase');
+    assert.deepEqual(states, [
+      { busy: true, message: null },
+      { busy: false, message: 'Falta configuración de Supabase' },
+    ]);
+  });
+
+  it('resetea busy a false en finally ante excepción no controlada o fallo de red', async () => {
+    const states: Array<{ busy: boolean; message: string | null }> = [];
+    const mockSignIn = async () => {
+      throw new Error('Network error: Failed to fetch');
+    };
+
+    const result = await executeSignInWithGuards(mockSignIn, {
+      onStateChange: (s) => states.push(s),
+    });
+
+    assert.equal(result.ok, false);
+    assert.match(String(result.message), /Network error/i);
+    assert.equal(states[0].busy, true);
+    assert.equal(states[states.length - 1].busy, false, 'busy debe restaurarse a false');
+    assert.match(String(states[states.length - 1].message), /Network error/i);
+  });
+
+  it('el temporizador de seguridad desbloquea el botón si la redirección demora más de 15s', async () => {
+    const states: Array<{ busy: boolean; message: string | null }> = [];
+    let scheduledCallback: (() => void) | null = null;
+    let registeredMs = 0;
+
+    const mockTimer = {
+      setTimeout: (fn: () => void, ms: number) => {
+        scheduledCallback = fn;
+        registeredMs = ms;
+        return 999;
+      },
+      clearTimeout: () => {
+        scheduledCallback = null;
+      },
+    };
+
+    // Simula éxito inicial donde el navegador debería navegar pero queda colgado
+    const mockSignIn = async () => ({ ok: true });
+
+    const result = await executeSignInWithGuards(mockSignIn, {
+      onStateChange: (s) => states.push(s),
+      timerApi: mockTimer,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(registeredMs, LOGIN_TIMEOUT_MS);
+    assert.equal(states.length, 1);
+    assert.equal(states[0].busy, true, 'inicialmente en estado Redirigiendo...');
+
+    // Se dispara el temporizador al cumplirse el timeout
+    assert.ok(typeof scheduledCallback === 'function');
+    (scheduledCallback as () => void)();
+
+    assert.equal(states.length, 2);
+    assert.equal(states[1].busy, false, 'el timeout restaura busy a false');
+    assert.equal(states[1].message, LOGIN_TIMEOUT_MESSAGE);
+  });
+
+  it('un error en signIn cancela el temporizador para que no se dispare después', async () => {
+    let timerCleared = false;
+    let timerIdSet: unknown = null;
+
+    const mockTimer = {
+      setTimeout: () => {
+        timerIdSet = 123;
+        return timerIdSet;
+      },
+      clearTimeout: (id: unknown) => {
+        if (id === timerIdSet) timerCleared = true;
+      },
+    };
+
+    await executeSignInWithGuards(
+      async () => ({ ok: false, message: 'Rechazado' }),
+      {
+        onStateChange: () => {},
+        timerApi: mockTimer,
+      }
+    );
+
+    assert.equal(timerCleared, true, 'el timer debe ser cancelado si hay error');
+  });
+});
+
