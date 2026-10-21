@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   LogOut,
   LogIn,
+  Database,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { getBrowserAuthClient, signOut } from "@/lib/auth/client-session";
@@ -24,6 +26,8 @@ export const navItems = [
   { href: "/", label: "Conversación", icon: MessageSquare },
   { href: "/connections", label: "Sistema", icon: Settings },
   { href: "/dashboard/providers", label: "APIs", icon: Radio },
+  { href: "/database", label: "Base de Datos", icon: Database },
+  { href: "/live-apis", label: "APIs en Vivo", icon: Globe },
   { href: "/neurons", label: "Neuronas", icon: Brain },
   { href: "/logs", label: "Bitácora", icon: ScrollText },
 ];

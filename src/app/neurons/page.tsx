@@ -35,12 +35,20 @@ interface Neuron {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  ejecutivo: "#10b981",
-  seguridad: "#0ea5e9",
-  memoria: "#f59e0b",
-  razonamiento: "#8b5cf6",
-  percepción: "#ec4899",
-  auditoría: "#14b8a6",
+  Finanzas: "#10b981",
+  Matemáticas: "#0ea5e9",
+  Software: "#8b5cf6",
+  Estrategia: "#f59e0b",
+  Comunicación: "#ec4899",
+  Calidad: "#14b8a6",
+  Legal: "#f43f5e",
+  finanzas: "#10b981",
+  matemáticas: "#0ea5e9",
+  software: "#8b5cf6",
+  estrategia: "#f59e0b",
+  comunicación: "#ec4899",
+  calidad: "#14b8a6",
+  legal: "#f43f5e",
 };
 
 export default function NeuronsPage() {

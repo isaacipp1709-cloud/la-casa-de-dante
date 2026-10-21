@@ -22,6 +22,7 @@ const LABEL: Record<ConnStatus, string> = {
 export function StatusBar() {
   const [status, setStatus] = useState<ConnStatus>("loading");
   const [details, setDetails] = useState<string>("");
+  const [isPreview, setIsPreview] = useState(false);
 
   const refresh = async () => {
     try {
@@ -38,6 +39,12 @@ export function StatusBar() {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const host = window.location.hostname;
+      if (host.endsWith(".vercel.app") && host !== "la-casa-de-dante.vercel.app") {
+        setIsPreview(true);
+      }
+    }
     refresh();
     const interval = setInterval(refresh, 30_000);
     return () => clearInterval(interval);
@@ -64,8 +71,18 @@ export function StatusBar() {
         {details && (
           <span className="hidden sm:inline text-zinc-700">{details}</span>
         )}
+        {isPreview && (
+          <a
+            href="https://la-casa-de-dante.vercel.app"
+            className="text-amber-400 hover:text-amber-300 underline flex items-center gap-1 font-semibold text-[10px]"
+          >
+            ⚠️ URL Preview · Ir a la-casa-de-dante.vercel.app
+          </a>
+        )}
       </div>
-      <div className="hidden sm:block">
+      <div className="hidden sm:flex items-center gap-3">
+        <span>37 Neuronas Activas</span>
+        <span className="text-zinc-800">·</span>
         <span>{modeLabel}</span>
       </div>
     </footer>
