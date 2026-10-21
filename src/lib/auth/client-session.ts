@@ -26,8 +26,30 @@ export function buildBrowserAuthOptions() {
   };
 }
 
+export function normalizeSupabaseUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  let trimmed = raw.trim();
+  const mdMatch = trimmed.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+  if (mdMatch) {
+    trimmed = mdMatch[1].trim();
+  }
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+  if (!trimmed) return null;
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    trimmed = 'https://' + trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
 export function readBrowserAuthConfig(): { url: string; anonKey: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return null;
   return { url, anonKey };
