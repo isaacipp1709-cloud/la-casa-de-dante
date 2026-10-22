@@ -63,6 +63,7 @@ export interface CoreCredentialPort {
     credentialId: string;
     messages: Array<{ role: ProviderRole; content: string }>;
     model?: string;
+    archetypeId?: string;
     conversationId?: string;
     timezone?: string;
     locale?: string;
@@ -459,6 +460,7 @@ async function executeChatWithCredential(
   model: string | undefined,
   deps: CredentialHandlerDeps,
   conversationId?: string,
+  archetypeId?: string,
 ): Promise<
   | { ok: true; response: ChatResponseLike; viaCore: boolean }
   | { ok: false; result: HandlerResult }
@@ -476,7 +478,7 @@ async function executeChatWithCredential(
   }
 
   const viaCore = await tryCore(deps, (core) =>
-    core.chatWithStoredCredential({ ownerId, credentialId, messages, model: effectiveModel, conversationId }),
+    core.chatWithStoredCredential({ ownerId, credentialId, messages, model: effectiveModel, conversationId, archetypeId }),
   );
   if (viaCore) {
     if (!viaCore.ok) return { ok: false, result: viaCore.result };
@@ -557,6 +559,7 @@ export async function handleChatWithCredential(
 
   const requestedModel = typeof parsed.body.model === 'string' ? parsed.body.model : undefined;
   const conversationId = extractConversationId(parsed.body);
+  const archetypeId = typeof parsed.body.archetypeId === 'string' ? parsed.body.archetypeId : undefined;
   const executed = await executeChatWithCredential(
     request,
     owner.ownerId,
@@ -565,6 +568,7 @@ export async function handleChatWithCredential(
     requestedModel,
     deps,
     conversationId,
+    archetypeId,
   );
   if (!executed.ok) return executed.result;
 
@@ -622,6 +626,7 @@ export async function handleChatWithStoredCredentialFromBody(
 
   const requestedModel = typeof body.model === 'string' ? body.model : undefined;
   const conversationId = extractConversationId(body);
+  const archetypeId = typeof body.archetypeId === 'string' ? body.archetypeId : undefined;
   const executed = await executeChatWithCredential(
     request,
     owner.ownerId,
@@ -630,6 +635,7 @@ export async function handleChatWithStoredCredentialFromBody(
     requestedModel,
     deps,
     conversationId,
+    archetypeId,
   );
   if (!executed.ok) return executed.result;
 

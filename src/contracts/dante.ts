@@ -6,6 +6,7 @@ export const DanteMessageSchema = z.object({
   timestamp: z.string().datetime().optional(),
   providerId: z.string().optional(),
   model: z.string().optional(),
+  archetypeId: z.string().optional(),
 });
 
 export const DanteChatMessageSchema = DanteMessageSchema;
@@ -24,6 +25,7 @@ export const DanteChatRequestSchema = z.object({
   providerId: z.string().optional(),
   credentialId: z.string().optional(), // BYOK: reference to stored credential, never the key
   model: z.string().optional(),
+  archetypeId: z.string().optional(),
 });
 
 export const DanteChatResponseSchema = z.object({
@@ -32,6 +34,7 @@ export const DanteChatResponseSchema = z.object({
   correlationId: z.string(),
   providerId: z.string().optional(),
   model: z.string().optional(),
+  archetypeId: z.string().optional(),
   persistence: z.enum(["saved", "unavailable", "disabled"]).optional(),
   usage: z.object({
     promptTokens: z.number().int().nonnegative(),

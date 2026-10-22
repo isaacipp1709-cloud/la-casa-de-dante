@@ -78,7 +78,7 @@ export interface DanteBridge {
   createCredential(input: { ownerId: string; providerId: string; apiKey: string }): Promise<{ storage: CredentialStorage; credential: { credentialId: string; providerId: string; createdAt: string; status: "active" } }>;
   listCredentials(ownerId: string): Promise<{ storage: CredentialStorage; credentials: Array<{ credentialId: string; providerId: string; createdAt: string; status: "active" }> }>;
   deleteCredential(ownerId: string, credentialId: string): Promise<{ storage: CredentialStorage; credentialId: string }>;
-  chatWithStoredCredential(input: { ownerId: string; credentialId: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }>; model?: string; conversationId?: string; timezone?: string; locale?: string }): Promise<DanteChatResponse>;
+  chatWithStoredCredential(input: { ownerId: string; credentialId: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }>; model?: string; archetypeId?: string; conversationId?: string; timezone?: string; locale?: string }): Promise<DanteChatResponse>;
 }
 
 export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
@@ -675,6 +675,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
     credentialId: string;
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
     model?: string;
+    archetypeId?: string;
     conversationId?: string;
     timezone?: string;
     locale?: string;
@@ -690,6 +691,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
         messages: input.messages,
         credentialId: input.credentialId,
         model: input.model,
+        archetypeId: input.archetypeId,
       },
       30_000,
       {
@@ -697,6 +699,7 @@ export class DanteBridgeImpl implements DanteBridge, LlmGatewayPort {
         'X-User-Timezone': input.timezone || 'America/Santiago',
         'X-User-Locale': input.locale || 'es-CL',
         'X-Conversation-ID': resolvedConversationId,
+        ...(input.archetypeId ? { 'X-Dante-Archetype': input.archetypeId } : {}),
       },
     )) as {
       id?: string;

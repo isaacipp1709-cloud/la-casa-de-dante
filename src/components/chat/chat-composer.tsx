@@ -4,6 +4,7 @@ import React, { KeyboardEvent, useRef, useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { ProviderSelector } from "./provider-selector";
 import { CredentialSelector } from "./credential-selector";
+import { ArchetypeSelector } from "./archetype-selector";
 
 interface ChatComposerProps {
   onSend: (message: {
@@ -11,11 +12,13 @@ interface ChatComposerProps {
     providerId?: string;
     model?: string;
     credentialId?: string;
+    archetypeId?: string;
   }) => void;
   onSelectionChange?: (sel: {
     providerId?: string;
     model?: string;
     credentialId?: string;
+    archetypeId?: string;
   }) => void;
   disabled?: boolean;
 }
@@ -25,6 +28,7 @@ export function ChatComposer({ onSend, onSelectionChange, disabled = false }: Ch
   const [providerId, setProviderId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const [credentialId, setCredentialId] = useState<string | null>(null);
+  const [archetypeId, setArchetypeId] = useState<string>('dante');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (!disabled && textareaRef.current) textareaRef.current.focus(); }, [disabled]);
@@ -34,21 +38,21 @@ export function ChatComposer({ onSend, onSelectionChange, disabled = false }: Ch
       providerId: providerId || undefined,
       model: model || undefined,
       credentialId: credentialId || undefined,
+      archetypeId: archetypeId || undefined,
     });
-  }, [providerId, model, credentialId, onSelectionChange]);
+  }, [providerId, model, credentialId, archetypeId, onSelectionChange]);
 
   const handleSend = () => {
     const trimmed = input.trim();
     if (trimmed && !disabled) {
-      // Se envia solo la referencia: la clave nunca sale del servidor.
       onSend({
         content: trimmed,
         providerId: providerId || undefined,
         model: model || undefined,
         credentialId: credentialId || undefined,
+        archetypeId: archetypeId || undefined,
       });
       setInput('');
-      // La seleccion se conserva para los siguientes mensajes de la conversacion.
     }
   };
 
@@ -59,7 +63,12 @@ export function ChatComposer({ onSend, onSelectionChange, disabled = false }: Ch
 
   return (
     <div className="flex flex-col w-full">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:gap-3 w-full px-4 sm:px-6 pt-3">
+      <div className="flex flex-wrap items-center gap-2.5 w-full px-4 sm:px-6 pt-3">
+        <ArchetypeSelector
+          value={archetypeId}
+          onChange={setArchetypeId}
+          disabled={disabled}
+        />
         <ProviderSelector
           onProviderChange={(p, m) => { setProviderId(p); setModel(m); }}
           disabled={disabled}
@@ -72,11 +81,11 @@ export function ChatComposer({ onSend, onSelectionChange, disabled = false }: Ch
       </div>
       <div className="flex gap-3 items-end p-4 sm:p-6">
         <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKeyDown}
-          placeholder="Ingresar comando o consulta..." disabled={disabled} rows={1}
+          placeholder="Ingresar comando o consulta a Dante..." disabled={disabled} rows={1}
           className="flex-1 max-h-32 min-h-[48px] resize-none rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5 text-sm focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-200 transition-colors shadow-sm overflow-y-auto" />
         <button onClick={handleSend} disabled={disabled || !input.trim()}
-          className="h-[48px] w-[48px] flex items-center justify-center bg-zinc-100 text-zinc-900 rounded-xl hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed transition-colors shadow-sm shrink-0" aria-label="Enviar mensaje">
-          <ArrowUp className="w-5 h-5" />
+          className="h-[48px] w-[48px] flex items-center justify-center bg-emerald-500 text-zinc-950 font-bold rounded-xl hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed transition-colors shadow-sm shrink-0" aria-label="Enviar mensaje">
+          <ArrowUp className="w-5 h-5 stroke-[2.5]" />
         </button>
       </div>
     </div>

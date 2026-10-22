@@ -81,6 +81,7 @@ export interface SubmitMessageInput {
   providerId?: string;
   model?: string;
   credentialId?: string | null;
+  archetypeId?: string;
   timezone?: string;
   locale?: string;
 }
@@ -831,6 +832,7 @@ export function createChatHistoryController(
         providerId: input.providerId,
         model: input.model,
         credentialId: input.credentialId ?? undefined,
+        archetypeId: input.archetypeId,
         sessionId: targetThreadId,
         conversationId: targetThreadId,
         messages: [

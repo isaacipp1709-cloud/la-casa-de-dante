@@ -46,6 +46,7 @@ export function ChatShell() {
     providerId?: string;
     model?: string;
     credentialId?: string;
+    archetypeId?: string;
   }>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -132,12 +133,14 @@ export function ChatShell() {
       providerOverride?: string,
       modelOverride?: string,
       credentialOverride?: string,
+      archetypeOverride?: string,
     ) => {
       await controllerRef.current?.submitMessage({
         text: content,
         providerId: providerOverride,
         model: modelOverride,
         credentialId: credentialOverride ?? null,
+        archetypeId: archetypeOverride,
       });
     },
     []
@@ -148,7 +151,8 @@ export function ChatShell() {
       content,
       activeSelection.providerId,
       activeSelection.model,
-      activeSelection.credentialId
+      activeSelection.credentialId,
+      activeSelection.archetypeId
     );
   };
 
@@ -157,12 +161,14 @@ export function ChatShell() {
     providerId?: string;
     model?: string;
     credentialId?: string;
+    archetypeId?: string;
   }) => {
     void submitMessage(
       message.content,
       message.providerId,
       message.model,
-      message.credentialId
+      message.credentialId,
+      message.archetypeId
     );
   };
 

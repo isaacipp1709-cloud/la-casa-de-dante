@@ -11,6 +11,10 @@ import {
   CheckCircle2,
   Clock,
   Layers,
+  Sparkles,
+  Terminal,
+  Palette,
+  Compass,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -266,6 +270,82 @@ export default function NeuronsPage() {
           </div>
         </div>
       )}
+
+      {/* Arquetipos Cognitivos Activos */}
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              Arquetipos Cognitivos & Moduladores Mentales
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Modos de razonamiento profundo integrados directamente en el orquestador de Dante Core.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-500">
+            Conmutables desde el chat
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-lg border border-emerald-900/40 bg-zinc-950/60">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> Dante Nativo
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
+                Principal
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-400 line-clamp-2">
+              Orquestación Von Neumann, balance sistémico, análisis patrimonial y memoria integral.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-sky-900/40 bg-zinc-950/60">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5" /> Modo Devin
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sky-950/60 text-sky-400 border border-sky-800/60">
+                Software
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-400 line-clamp-2">
+              Depuración autónoma profunda, verificación de contratos Zod, pruebas y cero regresiones.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-purple-900/40 bg-zinc-950/60">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" /> Modo v0 UI/UX
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-400 border border-purple-800/60">
+                Frontend
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-400 line-clamp-2">
+              Diseño de interfaces modernas, Tailwind CSS, ergonomía visual y accesibilidad sin recarga.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-amber-900/40 bg-zinc-950/60">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                <Compass className="w-3.5 h-3.5" /> Modo Manus
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-800/60">
+                Research
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-400 line-clamp-2">
+              Desglose deductivo de metas, contrastación de fuentes y planes de acción multi-etapa.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Controles de Búsqueda y Filtro */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-zinc-900/40 p-3.5 rounded-xl border border-zinc-800/80">

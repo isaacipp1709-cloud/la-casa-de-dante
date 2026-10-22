@@ -673,6 +673,7 @@ export class MockDanteProvider {
     credentialId: string;
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
     model?: string;
+    archetypeId?: string;
     conversationId?: string;
     timezone?: string;
     locale?: string;
