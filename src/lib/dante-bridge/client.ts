@@ -5,11 +5,16 @@
  * - Aplica el valor por defecto ('http://localhost:3001') si la entrada es nula o vacía.
  */
 export function normalizeCoreUrl(url?: string | null): string {
-  const fallback = 'http://localhost:3001';
-  if (!url || typeof url !== 'string') return fallback;
-  const trimmed = url.trim();
-  if (!trimmed) return fallback;
-  return trimmed.replace(/\/+$/, '');
+  if (url && typeof url === 'string') {
+    const trimmed = url.trim();
+    if (trimmed) return trimmed.replace(/\/+$/, '');
+  }
+  // En Vercel o en entorno cloud, no existe localhost:3001 dentro del entorno serverless.
+  // El fallback seguro hacia el Core en la nube es su URL canónica oficial.
+  if (process.env.VERCEL === '1') {
+    return 'https://dante-ai-core.vercel.app';
+  }
+  return 'http://localhost:3001';
 }
 
 /**

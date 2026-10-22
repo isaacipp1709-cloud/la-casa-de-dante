@@ -148,6 +148,22 @@ describe('Dante Bridge Resilience', () => {
       assert.strictEqual(normalizeCoreUrl(undefined), 'http://localhost:3001');
     });
 
+    it('normalizeCoreUrl resuelve a https://dante-ai-core.vercel.app cuando VERCEL=1 y la entrada es vacia', () => {
+      const prevVercel = process.env.VERCEL;
+      process.env.VERCEL = '1';
+      try {
+        assert.strictEqual(normalizeCoreUrl(undefined), 'https://dante-ai-core.vercel.app');
+        assert.strictEqual(normalizeCoreUrl(''), 'https://dante-ai-core.vercel.app');
+        assert.strictEqual(normalizeCoreUrl('   '), 'https://dante-ai-core.vercel.app');
+      } finally {
+        if (prevVercel !== undefined) {
+          process.env.VERCEL = prevVercel;
+        } else {
+          delete process.env.VERCEL;
+        }
+      }
+    });
+
     it('buildCoreEndpointUrl evita dobles barras diagonales', () => {
       assert.strictEqual(
         buildCoreEndpointUrl('/api/chat', 'https://dante-ai-core.vercel.app/'),

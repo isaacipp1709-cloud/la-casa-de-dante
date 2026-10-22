@@ -226,9 +226,27 @@ async function tryCore<T>(
     return { ok: true, value: await operation(deps.core) };
   } catch (error) {
     const status = coreHttpStatus(error);
+    const errMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`[CredentialHandlers.tryCore] Delegación al Core falló: ${errMessage} (status: ${status ?? 'none'})`);
+
+    // 4xx siempre se propaga como decisión del Core
     if (status !== null && status >= 400 && status < 500) {
       return { ok: false, result: coreFailureResult(status) };
     }
+
+    // En producción (sin fallback local en memoria), los errores 5xx del Core o timeout deben reportar la causa real
+    if (!deps.fallbackEnabled) {
+      if (status !== null) {
+        return { ok: false, result: coreFailureResult(status) };
+      }
+      if (error instanceof Error && error.message === 'TIMEOUT') {
+        return { ok: false, result: fail(504, 'PROVIDER_TIMEOUT', 'Dante-AI-Core tardó demasiado en responder.') };
+      }
+      if (error instanceof Error && (error.name === 'ValidationError' || errMessage.includes('identity') || errMessage.includes('Identidad'))) {
+        return { ok: false, result: fail(500, 'SECURITY_CONFIG_ERROR', 'Aserción de identidad no disponible (verifica DANTE_CORE_TOKEN en Vercel).') };
+      }
+    }
+
     return null;
   }
 }
