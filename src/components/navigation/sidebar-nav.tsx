@@ -19,6 +19,7 @@ import {
   Globe,
   Users,
   Network,
+  Mic,
   type LucideIcon,
 } from "lucide-react";
 import { getBrowserAuthClient, signOut } from "@/lib/auth/client-session";
@@ -26,6 +27,7 @@ import { getBrowserAuthClient, signOut } from "@/lib/auth/client-session";
 export const navItems = [
   { href: "/dashboard", label: "Casa", icon: Home },
   { href: "/", label: "Conversación", icon: MessageSquare },
+  { href: "/jarvis", label: "Jarvis AI", icon: Mic },
   { href: "/connections", label: "Sistema", icon: Settings },
   { href: "/dashboard/providers", label: "APIs", icon: Radio },
   { href: "/database", label: "Base de Datos", icon: Database },

@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Terminal, Palette, Compass } from "lucide-react";
+import { Sparkles, Terminal, Palette, Compass, Mic } from "lucide-react";
 
 export interface ArchetypeOption {
   id: string;
   name: string;
   role: string;
   badge: string;
-  icon: "sparkles" | "terminal" | "palette" | "compass";
+  icon: "sparkles" | "terminal" | "palette" | "compass" | "mic";
   color: string;
 }
 
@@ -44,6 +44,14 @@ export const ARCHETYPES: readonly ArchetypeOption[] = [
     badge: "🔍 Manus",
     icon: "compass",
     color: "#f59e0b", // Amber
+  },
+  {
+    id: "jarvis",
+    name: "Modo Jarvis",
+    role: "Copiloto Ejecutivo & Voz Proactiva",
+    badge: "🎙️ Jarvis",
+    icon: "mic",
+    color: "#06b6d4", // Cyan
   },
 ];
 
@@ -90,6 +98,7 @@ export function ArchetypeSelector({
           {current.icon === "terminal" && <Terminal className="w-3.5 h-3.5" />}
           {current.icon === "palette" && <Palette className="w-3.5 h-3.5" />}
           {current.icon === "compass" && <Compass className="w-3.5 h-3.5" />}
+          {current.icon === "mic" && <Mic className="w-3.5 h-3.5" />}
         </span>
 
         {/* Punto indicador de estado a la derecha */}
